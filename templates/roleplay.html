@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Role Play</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <!-- PDF libs (use jsDelivr without SRI to avoid integrity mismatch) -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <!-- DOCX lib -->
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+  <!-- Prevent favicon 404 using a tiny inline data URL -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%F0%9F%8C%88%3C/text%3E%3C/svg%3E">
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto px-4 py-10 max-w-3xl">
+    <div id="card" class="bg-white rounded-lg shadow p-6">
+      <h1 class="text-2xl font-semibold mb-2">Role Play</h1>
+      {% if unit %}
+        <p class="text-sm text-gray-600 mb-1">Unit: <strong>{{ unit.title }}</strong></p>
+        <div id="rp-instructions" class="mb-2 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-gray-800"></div>
+      {% endif %}
+      <!-- Student name input moved here (below title and instructions) -->
+      <div class="mb-3">
+        <input id="student-name" type="text" class="p-2 border rounded text-sm" placeholder="Student Name (optional)" style="min-width: 16rem;" />
+      </div>
+      <div id="transcript" class="border rounded p-3 h-80 overflow-y-auto bg-gray-50 mb-3"></div>
+      <div class="flex items-center gap-2 mb-2">
+        <input id="text-input" type="text" class="flex-1 p-2 border rounded" placeholder="Type your line in Chinese or English..." />
+        <button id="mic" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">🎤 Voice</button>
+        <button id="pause" class="bg-gray-600 text-white px-3 py-2 rounded hover:bg-gray-700" title="Pause current audio">⏸ Pause</button>
+        <button id="send" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Type</button>
+      </div>
+      <div class="flex items-center gap-3 text-sm text-gray-600">
+        <span id="error" class="text-red-700"></span>
+      </div>
+      <div class="mt-3 flex items-center gap-3">
+        <button id="finish" class="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 text-sm">Finish & Feedback</button>
+        <button id="saveDocx" class="bg-indigo-600 text-white px-3 py-2 rounded hover:bg-indigo-700 text-sm">Save DOCX</button>
+        <span id="status" class="text-sm text-gray-500"></span>
+      </div>
+      <div id="feedback" class="mt-4 hidden border rounded p-3 bg-green-50">
+        <h2 class="font-semibold mb-2">End-of-Conversation Feedback</h2>
+        <div id="feedbackBody" class="whitespace-pre-wrap text-sm"></div>
+      </div>
+      <div class="mt-4"><a href="/select?unit={{ unit_id }}" class="text-blue-600 hover:underline">← Back to activity choice</a></div>
+    </div>
+  </div>
+
+  <script>
+    const unitId = '{{ unit_id }}';
+    // Render English-only instructions below the unit title (outside chatbot)
+    (function renderEnglishInstructions(){
+      try{
+        const el = document.getElementById('rp-instructions');
+        if (!el) return;
+        const textByUnit = {
+          'unit1': (
+            'Instructions (English):\n' +
+            '- Student asks the questions first.\n' +
+            '- Emily answers only what you ask (no extra info).\n' +
+            '- Emily speaks Chinese with pinyin; English only on request.\n' +
+            '- Suggested first question: Ask Emily’s Chinese name.\n' +
+            '- Record your conversation and write down Emily’s responses in Chinese in your handout.'
+          ),
+          'unit2': (
+            'Instructions (English):\n' +
+            '- Student asks the questions first.\n' +
+            '- Emily answers only what you ask (no extra info).\n' +
+            '- Stay on Unit 2 topics (family size, members, siblings, pets, ages).\n' +
+            '- Emily speaks Chinese with pinyin; English only on request.\n' +
+            '- Suggested first question: How many people are in your family? Who are they?\n' +
+            '- Record your conversation and write down Emily’s responses in Chinese in your handout.'
+          ),
+          'unit3': (
+            'Instructions (English):\n' +
+            '- Student asks the questions first.\n' +
+            '- Emily answers only what you ask (no extra info).\n' +
+            '- Focus on schedule (days, dates, classes, activities, times).\n' +
+            '- Emily speaks Chinese with pinyin; English only on request.\n' +
+            '- Suggested first question: What classes/activities do you have today?\n' +
+            '- Record your conversation and write down Emily’s responses in Chinese in your handout.'
+          )
+        };
+        const text = textByUnit[unitId] || (
+          'Instructions (English):\n- Student asks first.\n- Emily answers only what you ask.\n- Emily speaks Chinese with pinyin; English only on request.\n- Record your conversation and write down Emily’s responses in Chinese in your handout.'
+        );
+        el.innerText = text;
+      } catch {}
+    })();
+    const state = { history: [], assistantTurn: 0, helpShownFor: {}, startedAt: null, completedMs: null };
+    // Gate autoplay until any user interaction happens (fix NotAllowedError)
+    let hasUserInteracted = false;
+    ['pointerdown','keydown','touchstart'].forEach(evt => {
+      window.addEventListener(evt, () => { hasUserInteracted = true; }, { once: true, passive: true });
+    });
+    let inactivityTimer = null;
+    function scheduleInactivityPrompt(turnId) {
+      clearTimeout(inactivityTimer);
+      // After assistant speaks, wait 90 seconds for the student; then show one-time help for THIS turn
+      inactivityTimer = setTimeout(() => {
+        if (state.helpShownFor && state.helpShownFor[turnId]) return;
+        // Mark this turn as helped and insert an assistance line (no autoplay)
+        const promptLine = "你需要帮助吗？(Nǐ xūyào bāngzhù ma?) 要不要我慢一点？(Yào bùyào wǒ màn yìdiǎn?) Would you like a hint?";
+        addLine('assistant', promptLine, { autoplay: false });
+        state.history.push({ role:'assistant', content: promptLine });
+        state.helpShownFor[turnId] = true;
+      }, 90000);
+    }
+
+    // Render helper: when hideEnglish is true, keep only Chinese + pinyin (up to last closing parenthesis) per line
+    function renderForDisplay(text, hideEnglish = false) {
+      if (!hideEnglish) return text;
+      return (text || '')
+        .split(/\n/g)
+        .map(line => {
+          const idx = line.lastIndexOf(')');
+          if (idx !== -1) return line.slice(0, idx + 1).trim();
+          // No pinyin pattern found; best-effort: return the line as-is (could be pure Chinese)
+          return line;
+        })
+        .join('\n');
+    }
+
+    // Remove pinyin in parentheses to show Chinese-only
+    function stripPinyin(text) {
+      if (!text) return '';
+      // Remove parenthetical pinyin segments like " (nǐ hǎo)"
+      // Then remove multiple spaces left behind
+      return text.replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
+    }
+
+    // Extract pinyin-only block: for each line, collect parenthetical pinyin
+    function extractPinyin(text) {
+      if (!text) return '';
+      const lines = (text || '').split(/\n/g);
+      const out = [];
+      for (const line of lines) {
+        const parts = [];
+        const regex = /\(([^)]*)\)/g;
+        let m;
+        while ((m = regex.exec(line)) !== null) {
+          const seg = (m[1] || '').trim();
+          if (seg) parts.push(seg);
+        }
+        if (parts.length) out.push(parts.join(' '));
+      }
+      return out.join('\n');
+    }
+
+    // Finish & Feedback handler
+    document.getElementById('finish').addEventListener('click', async () => {
+      try {
+        document.getElementById('status').textContent = 'Generating feedback…';
+        const res = await fetch('/activity/roleplay/feedback', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ unitId, history: state.history })
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) { document.getElementById('error').textContent = data.error || 'Failed to get feedback'; document.getElementById('status').textContent=''; return; }
+        // Stop timer
+        if (state.startedAt && state.completedMs == null) {
+          state.completedMs = Date.now() - state.startedAt;
+        }
+        const fbWrap = document.getElementById('feedback');
+        const fbBody = document.getElementById('feedbackBody');
+        fbBody.textContent = data.feedback || 'No feedback available.';
+        fbWrap.classList.remove('hidden');
+        // Show completion time in status
+        const mins = state.completedMs ? Math.floor(state.completedMs/60000) : 0;
+        const secs = state.completedMs ? Math.floor((state.completedMs%60000)/1000) : 0;
+        const tStr = state.completedMs != null ? `Time: ${mins}m ${secs}s. ` : '';
+        document.getElementById('status').textContent = `${tStr}Feedback ready. Reminder: save your log, complete your handout, and upload the handout, the log, and the video.`;
+      } catch (e) {
+        document.getElementById('error').textContent = 'Error getting feedback';
+        document.getElementById('status').textContent='';
+      }
+    });
+
+    function addLine(role, content, options = {}) {
+      const wrap = document.getElementById('transcript');
+      const row = document.createElement('div');
+      row.className = `mb-2 ${role === 'user' ? 'text-right' : ''}`;
+      const bubble = document.createElement('div');
+      bubble.className = `inline-block px-3 py-2 rounded text-gray-900 ${role === 'user' ? 'bg-blue-100' : 'bg-gray-200'}`;
+      // Separate content container from controls so we can re-render text without losing controls
+      const contentEl = document.createElement('div');
+      contentEl.dataset.original = content; // legacy key
+      contentEl.dataset.originalCn = content; // Chinese + pinyin (as returned by assistant)
+      const chineseOnly = stripPinyin(content);
+      contentEl.dataset.chineseOnly = chineseOnly;
+      contentEl.dataset.pinyinOnly = extractPinyin(content);
+      contentEl.dataset.english = '';
+      contentEl.dataset.showPinyin = 'false';
+      if (role !== 'user') {
+        contentEl.dataset.role = 'assistant';
+        // If this is the opening instruction, allow showing English initially
+        const initialShowEnglish = options.showEnglish === true ? 'false' : 'true';
+        contentEl.dataset.hideEnglish = initialShowEnglish;
+      }
+      contentEl.className = 'whitespace-pre-wrap';
+      const hideEng = (role !== 'user') ? (contentEl.dataset.hideEnglish === 'true') : false;
+      // For assistant lines:
+      // - Opening: show Chinese-only (no pinyin, no English) by default
+      // - Normal chats: show Chinese-only by default
+      let initialText = content;
+      if (role !== 'user') {
+        if (options.opening === true) {
+          initialText = chineseOnly;
+        } else if (!options.showEnglish) {
+          initialText = chineseOnly;
+        }
+      }
+      const displayText = (role !== 'user') ? (hideEng ? renderForDisplay(initialText, true) : initialText) : content;
+      contentEl.innerHTML = displayText.replace(/\n/g, '<br>');
+      bubble.appendChild(contentEl);
+      if (role !== 'user') {
+        const controls = document.createElement('div');
+        controls.className = 'mt-2 flex items-center gap-2';
+        const play = document.createElement('button');
+        play.textContent = '▶️ Play audio';
+        play.className = 'text-xs bg-gray-300 hover:bg-gray-400 px-2 py-1 rounded';
+        const pauseBtn = document.createElement('button');
+        pauseBtn.textContent = '⏸ Pause';
+        pauseBtn.className = 'text-xs bg-gray-300 hover:bg-gray-400 px-2 py-1 rounded';
+        // Discrete speed toggle (0.75x, 1x, 1.25x)
+        const speedWrap = document.createElement('label');
+        speedWrap.className = 'text-xs flex items-center gap-1';
+        speedWrap.textContent = 'Speed';
+        const speedSel = document.createElement('select');
+        speedSel.className = 'text-xs border rounded px-1 py-0.5';
+        speedSel.setAttribute('data-speed', 'select');
+        [['0.75','0.75x'], ['1.0','1x'], ['1.25','1.25x']].forEach(([val,label])=>{
+          const opt = document.createElement('option'); opt.value = val; opt.textContent = label; if (val==='1.0') opt.selected=true; speedSel.appendChild(opt);
+        });
+        play.onclick = () => playTTS((options.showEnglish ? contentEl.dataset.originalCn : contentEl.dataset.chineseOnly) || content, speedSel.value);
+        pauseBtn.onclick = () => pauseTTS();
+        // Append play first, then speed toggle
+        controls.appendChild(play);
+        controls.appendChild(pauseBtn);
+        speedWrap.appendChild(speedSel);
+        controls.appendChild(speedWrap);
+        // Per-bubble Show/Hide Pinyin toggle
+        const pinyinBtn = document.createElement('button');
+        pinyinBtn.className = 'text-xs bg-gray-100 text-gray-900 px-2 py-1 rounded hover:bg-gray-200';
+        pinyinBtn.textContent = 'Show Pinyin';
+        pinyinBtn.addEventListener('click', () => {
+          const showing = contentEl.dataset.showPinyin === 'true';
+          const next = !showing; contentEl.dataset.showPinyin = next ? 'true' : 'false';
+          pinyinBtn.textContent = next ? 'Hide Pinyin' : 'Show Pinyin';
+          const cnOnly = contentEl.dataset.chineseOnly || '';
+          const pinyinBlock = contentEl.dataset.pinyinOnly || '';
+          const eng = (contentEl.dataset.hideEnglish === 'false') ? (contentEl.dataset.english || '') : '';
+          let composed = cnOnly;
+          if (next && pinyinBlock) composed += '\n\n' + pinyinBlock;
+          if (eng) composed += '\n\n' + eng;
+          contentEl.innerHTML = composed.replace(/\n/g, '<br>');
+        });
+        controls.appendChild(pinyinBtn);
+
+        // Per-bubble Hide/Show English toggle (optional)
+        if (options.allowEnglishToggle !== false) {
+          const toggleBtn = document.createElement('button');
+          toggleBtn.className = 'text-xs bg-yellow-100 text-gray-900 px-2 py-1 rounded hover:bg-yellow-200';
+          toggleBtn.textContent = (contentEl.dataset.hideEnglish === 'true') ? 'Show English' : 'Hide English';
+          toggleBtn.addEventListener('click', async () => {
+            const currentlyHidden = contentEl.dataset.hideEnglish === 'true';
+            const nextHidden = !currentlyHidden;
+            contentEl.dataset.hideEnglish = nextHidden ? 'true' : 'false';
+            toggleBtn.textContent = nextHidden ? 'Show English' : 'Hide English';
+            // Use current Pinyin visibility to decide base text
+            const showPinyin = contentEl.dataset.showPinyin === 'true';
+            const cn = showPinyin ? (contentEl.dataset.originalCn || '') : (contentEl.dataset.chineseOnly || '');
+            // If we are going to SHOW English and don't have it yet, fetch a gloss
+            if (!nextHidden && !contentEl.dataset.english) {
+              try {
+                toggleBtn.disabled = true; toggleBtn.textContent = 'Loading…';
+                const res = await fetch('/activity/roleplay/translate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: contentEl.dataset.originalCn || cn }) });
+                const data = await res.json();
+                if (res.ok && !data.error && data.english) {
+                  contentEl.dataset.english = data.english;
+                } else {
+                  contentEl.dataset.english = '(English gloss unavailable)';
+                }
+              } catch (e) {
+                contentEl.dataset.english = '(English gloss unavailable)';
+              } finally {
+                toggleBtn.disabled = false; toggleBtn.textContent = 'Hide English';
+              }
+            }
+            const eng = contentEl.dataset.english || '';
+            const composed = nextHidden ? cn : (cn + (eng ? ('\n' + eng) : ''));
+            contentEl.innerHTML = composed.replace(/\n/g, '<br>');
+          });
+          controls.appendChild(toggleBtn);
+        }
+        bubble.appendChild(controls);
+      }
+      row.appendChild(bubble);
+      wrap.appendChild(row);
+      wrap.scrollTop = wrap.scrollHeight;
+      // If assistant spoke, autoplay audio (unless disabled) and start inactivity timer; if user spoke, clear it
+      if (role !== 'user') {
+        if (options.autoplay !== false && (hasUserInteracted || options.opening === true)) {
+          try {
+            const sel = bubble.querySelector('select[data-speed]');
+            const rate = sel ? sel.value : '1.0';
+            // Use original text to allow English names; playTTS will remove pinyin parentheses
+            playTTS(contentEl.dataset.originalCn || content, rate);
+          } catch {}
+        }
+        // Register a new assistant turn and schedule per-turn assistance prompt
+        state.assistantTurn = (state.assistantTurn || 0) + 1;
+        scheduleInactivityPrompt(state.assistantTurn);
+      } else {
+        clearTimeout(inactivityTimer);
+      }
+    }
+
+    async function startRoleplay() {
+      const res = await fetch('/activity/roleplay/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ unitId }) });
+      const data = await res.json();
+      if (!res.ok || data.error) { document.getElementById('error').textContent = data.error || 'Failed to start'; return; }
+      // Start timer on first load
+      if (!state.startedAt) state.startedAt = Date.now();
+      const instruction = (data.instruction || '').trim();
+      const greeting = (data.greeting || '').trim();
+      const firstQ = (data.firstQuestion || '').trim();
+      // We no longer display the instruction line inside the chatbot bubbles.
+      if (greeting || firstQ) {
+        if (greeting) {
+          addLine('assistant', greeting, { autoplay: true, opening: true });
+          state.history.push({ role:'assistant', content: greeting });
+          if (hasUserInteracted) { try { await waitForAudioEnd(); } catch {} }
+        }
+        // Do NOT send the first question from Emily; students must ask first.
+      } else {
+        // Backward compatibility: use combined opening if provided
+        const opening = (data.opening || '').trim();
+        if (opening) {
+          addLine('assistant', opening, { opening: true, showEnglish: false, allowEnglishToggle: true });
+          state.history.push({ role:'assistant', content: opening });
+        }
+      }
+    }
+
+    async function sendText() {
+      const input = document.getElementById('text-input');
+      const message = input.value.trim(); if (!message) return; input.value='';
+      addLine('user', message); state.history.push({ role:'user', content: message });
+      const res = await fetch('/activity/roleplay/turn', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ unitId, history: state.history, message }) });
+      const data = await res.json();
+      if (!res.ok || data.error) { document.getElementById('error').textContent = data.error || 'Failed to continue'; return; }
+      addLine('assistant', data.reply); state.history.push({ role:'assistant', content: data.reply });
+    }
+
+    document.getElementById('send').addEventListener('click', sendText);
+    document.getElementById('text-input').addEventListener('keyup', (e)=>{ if (e.key==='Enter') sendText(); });
+
+    // Removed global toggle; per-bubble toggle is added inside each assistant message
+
+    // Very simple voice input (Web Speech API if available)
+    const micBtn = document.getElementById('mic');
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const rec = new SR();
+      rec.lang = 'zh-CN';
+      rec.interimResults = false; // we only want final chunks
+      // Try to keep recognition going until student clicks stop
+      try { rec.continuous = true; } catch {}
+      let isRecording = false;
+      let recognitionBuffer = '';
+      let isFinalizing = false;
+
+      function finalizeAndSend() {
+        if (isFinalizing) return;
+        isFinalizing = true;
+        const text = (recognitionBuffer || '').trim();
+        recognitionBuffer = '';
+        micBtn.textContent = '🎤 Voice (click to record)';
+        if (text) {
+          const input = document.getElementById('text-input');
+          input.value = text;
+          // Send immediately
+          sendText();
+        }
+        setTimeout(()=>{ isFinalizing = false; }, 50);
+      }
+
+      micBtn.onclick = () => {
+        try {
+          if (!isRecording) {
+            isRecording = true;
+            isFinalizing = false;
+            recognitionBuffer = '';
+            rec.start();
+            micBtn.textContent = '🎤 Recording… Click to stop';
+          } else {
+            isRecording = false;
+            rec.stop();
+            // onstop will call finalizeAndSend()
+          }
+        } catch (e) { document.getElementById('error').textContent='Voice input error'; }
+      };
+
+      rec.onresult = (e) => {
+        try {
+          // Append the latest final result
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const res = e.results[i];
+            if (res.isFinal && res[0] && res[0].transcript) {
+              recognitionBuffer += (recognitionBuffer ? ' ' : '') + res[0].transcript;
+            }
+          }
+        } catch {}
+      };
+
+      rec.onend = () => {
+        // Chrome may auto-stop; if still recording, restart to simulate continuous capture
+        if (isRecording) {
+          try { rec.start(); } catch {}
+        } else {
+          finalizeAndSend();
+        }
+      };
+
+      rec.onstop = () => {
+        // Explicit stop from the button — finalize and send
+        finalizeAndSend();
+      };
+
+      rec.onerror = () => { document.getElementById('error').textContent='Voice input error'; };
+    } else {
+      micBtn.disabled = true; micBtn.title = 'Voice input not supported in this browser';
+    }
+
+    // Reuse TTS from index page if available; otherwise provide minimal version
+    let currentAudio = null;
+    async function playTTS(text, rate = '1.0') {
+      return new Promise(async (resolve) => {
+        try {
+          // Keep Chinese and English names; remove parenthetical pinyin only
+          const speakText = text.replace(/\([^)]*\)/g, '').replace(/\s+/g,' ').trim();
+          if (!speakText) { resolve(); return; }
+          const res = await fetch('/tts',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: speakText, voice: 'alloy' })});
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          if (currentAudio) { try { currentAudio.pause(); } catch {} }
+          const audio = new Audio(url);
+          audio.playbackRate = Number(rate) || 1.0;
+          currentAudio = audio;
+          const playPromise = audio.play();
+          if (playPromise && typeof playPromise.then === 'function') {
+            playPromise.then(() => {
+              audio.onended = () => { try { URL.revokeObjectURL(url); } catch {} resolve(); };
+            }).catch(() => { try { URL.revokeObjectURL(url); } catch {} resolve(); });
+          } else {
+            // If browser doesn't return a promise, resolve onended or quickly
+            audio.onended = () => { try { URL.revokeObjectURL(url); } catch {} resolve(); };
+            setTimeout(()=>resolve(), 100); // safety fallback
+          }
+        } catch {
+          resolve();
+        }
+      });
+    }
+
+    function waitForAudioEnd() {
+      return new Promise((resolve) => {
+        try {
+          if (!currentAudio) { resolve(); return; }
+          // If no audio is playing, resolve immediately
+          if (currentAudio.paused) { resolve(); return; }
+          const onEnd = () => { try { currentAudio.onended = null; } catch {} resolve(); };
+          currentAudio.onended = onEnd;
+        } catch { resolve(); }
+      });
+    }
+
+    function pauseTTS() {
+      try { if (currentAudio) currentAudio.pause(); } catch {}
+    }
+
+    // Auto-start roleplay (fetches and displays introduction line)
+    startRoleplay();
+
+    // Save DOCX of conversation and feedback (colored bubbles)
+    document.getElementById('saveDocx').addEventListener('click', async () => {
+      try {
+        const docx = window.docx;
+        if (!docx) { document.getElementById('error').textContent = 'DOCX library not loaded'; return; }
+        const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ShadingType } = docx;
+
+        const children = [];
+        const unitTitle = '{{ unit.title if unit else "Role Play" }}';
+        const dt = new Date();
+
+        // Header
+        children.push(new Paragraph({
+          heading: HeadingLevel.HEADING_1,
+          children: [new TextRun({ text: `Role Play — ${unitTitle}`, bold: true })],
+        }));
+        // Include student name if provided
+        const studentName = (document.getElementById('student-name')?.value || '').trim();
+        if (studentName) {
+          children.push(new Paragraph({ children: [new TextRun({ text: `Student: ${studentName}`, size: 20 })] }));
+        }
+        children.push(new Paragraph({ children: [new TextRun({ text: dt.toLocaleString(), size: 20 })] }));
+        children.push(new Paragraph({ children: [new TextRun({ text: " " })] }));
+
+        // Conversation
+        const transcriptEl = document.getElementById('transcript');
+        const rows = Array.from(transcriptEl.children);
+        for (const row of rows) {
+          const bubble = row.firstElementChild; if (!bubble) continue;
+          const roleIsUser = row.className.includes('text-right');
+          const textDiv = bubble.firstElementChild; const raw = textDiv ? textDiv.innerText.trim() : '';
+          if (!raw) continue;
+          const fill = roleIsUser ? 'DBEAFE' : 'E5E7EB'; // blue-100 vs gray-200
+          const paras = raw.split(/\n/).map(line => new Paragraph({
+            shading: { type: ShadingType.CLEAR, color: 'auto', fill },
+            children: [new TextRun({ text: line })],
+          }));
+          const ts = new Date().toLocaleString();
+          // Include duration if available
+          if (state.completedMs != null) {
+            const mins = Math.floor(state.completedMs/60000), secs = Math.floor((state.completedMs%60000)/1000);
+            const dur = `${mins}m ${secs}s`;
+            children.push(new Paragraph({ children: [new TextRun({ text: `Duration: ${dur}` })] }));
+          }
+          children.push(new Paragraph({ children: [new TextRun({ text: `Generated: ${ts}` })] }));
+          children.push(...paras);
+          children.push(new Paragraph({ children: [new TextRun({ text: " " })] }));
+        }
+
+        // Feedback
+        const fbBody = document.getElementById('feedbackBody');
+        const fbText = fbBody ? fbBody.innerText.trim() : '';
+        if (fbText) {
+          children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'End-of-Conversation Feedback', bold: true })] }));
+          const fbParas = fbText.split(/\n/).map(line => new Paragraph({ children: [new TextRun({ text: line })] }));
+          children.push(...fbParas);
+        }
+
+        const doc = new Document({ sections: [{ properties: {}, children }] });
+        const blob = await Packer.toBlob(doc);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${unitTitle.replace(/\s+/g,'_')}_transcript_${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}.docx`;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(a.href);
+        document.getElementById('status').textContent = 'DOCX saved. Reminder: save your log, complete your handout, and upload the handout, the log, and the video.';
+      } catch (e) {
+        document.getElementById('error').textContent = 'Failed to save DOCX';
+      }
+    });
+
+    // Global Pause button click handler
+    document.getElementById('pause').addEventListener('click', () => pauseTTS());
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Select Activity</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto px-4 py-10 max-w-3xl">
+    <div class="bg-white rounded-lg shadow p-6">
+      <h1 class="text-2xl font-semibold mb-4">Choose an Activity</h1>
+      {% if unit %}
+        <p class="mb-2 text-gray-700">Unit: <strong>{{ unit.title }}</strong></p>
+      {% else %}
+        <p class="mb-2 text-gray-700">No unit selected. Please go back and pick a unit.</p>
+      {% endif %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+        <a href="/matching?unit={{ unit_id }}" class="text-center bg-green-600 text-white px-4 py-3 rounded hover:bg-green-700">Start Matching</a>
+        <a href="/roleplay?unit={{ unit_id }}" class="text-center bg-purple-600 text-white px-4 py-3 rounded hover:bg-purple-700">Start Role Play</a>
+      </div>
+      <div class="mt-4">
+        <a class="text-blue-600 hover:underline" href="/">← Back</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mandarin Learning Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            height: calc(100vh - 200px);
+        }
+        .message {
+            max-width: 80%;
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: auto;
+            border-bottom-right-radius: 0.25rem;
+        }
+        .assistant-message {
+            background-color: #f5f5f5;
+            margin-right: auto;
+            border-bottom-left-radius: 0.25rem;
+        }
+        .chinese {
+            font-size: 1.25rem;
+            line-height: 1.6;
+            margin: 0.5rem 0;
+        }
+        .pinyin {
+            color: #666;
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-600">Mandarin Learning Assistant</h1>
+            <p class="text-gray-600">Practice your Mandarin conversation skills with AI</p>
+        </header>
+
+        <!-- Landing Welcome Panel -->
+        <div id="welcome-panel" class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-semibold mb-2">欢迎！(Huānyíng!)</h2>
+            <p class="chinese mb-1">你好！我是李爱，你的中文语伴。今天我们要怎么一起练习中文？</p>
+            <p class="pinyin mb-1">Nǐ hǎo! Wǒ shì Lǐ Ài, nǐ de Zhōngwén yǔbàn. Jīntiān wǒmen yào zěnme yīqǐ liànxí Zhōngwén?</p>
+            <p class="text-gray-700">Hello! I am Li Ai (Emily), your Chinese language partner. How can we practice Chinese together today?</p>
+            <div class="mt-4">
+                <p class="text-gray-700 mb-2">Please choose a unit to start:</p>
+                <div id="welcome-unit-buttons" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+            </div>
+            <p class="text-sm text-gray-600 mt-3">You will choose an activity on the next page.</p>
+        </div>
+
+        <!-- Activities Panel (initially hidden) -->
+        <div id="activities-panel" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
+            <h2 class="text-xl font-semibold mb-4">Activities</h2>
+            <div class="flex flex-wrap items-center gap-3 mb-4">
+                <label class="text-sm text-gray-700">Unit</label>
+                <select id="unit-select" class="p-2 border border-gray-300 rounded"></select>
+                <button id="btn-start-matching" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Start Matching</button>
+                <button id="btn-start-roleplay" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Start Role Play</button>
+            </div>
+
+            <!-- Matching Activity Area -->
+            <div id="matching-area" class="hidden">
+                <p id="matching-instructions" class="text-gray-700 mb-3"></p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <h3 class="font-medium mb-2">Characters</h3>
+                        <ul id="matching-left" class="space-y-2"></ul>
+                    </div>
+                    <div>
+                        <h3 class="font-medium mb-2">English</h3>
+                        <ul id="matching-right" class="space-y-2"></ul>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h4 class="font-medium">Selected Pairs</h4>
+                    <ul id="selected-pairs" class="mt-2 space-y-1 text-sm text-gray-700"></ul>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button id="btn-submit-matching" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Check Answers</button>
+                    <button id="btn-next-round" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 hidden">Next Round</button>
+                </div>
+                <div id="matching-feedback" class="mt-3 text-sm"></div>
+            </div>
+
+            <!-- Role Play Activity Area -->
+            <div id="roleplay-area" class="hidden mt-6">
+                <h3 class="font-medium mb-2">Role Play</h3>
+                <div id="roleplay-transcript" class="border rounded p-3 h-64 overflow-y-auto bg-gray-50 mb-3"></div>
+                <div class="flex gap-2">
+                    <input id="roleplay-input" type="text" class="flex-1 p-2 border rounded" placeholder="Type your line in Chinese or English..." />
+                    <button id="btn-roleplay-send" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Send</button>
+                </div>
+                <div id="roleplay-error" class="text-sm text-red-700 mt-2"></div>
+            </div>
+        </div>
+
+        <!-- Chat block removed from landing page; Role Play provides the conversation UI -->
+    </div>
+
+    <script>
+        // -------- Activity: Character Matching state --------
+        const activityState = {
+            unitId: null,
+            size: 6,
+            missed: [],
+            left: [],
+            right: [],
+            pairs: [], // {leftId,leftHanzi,rightId,rightEnglish}
+        };
+
+        async function loadUnits() {
+            try {
+                const res = await fetch('/units');
+                const data = await res.json();
+                const sel = document.getElementById('unit-select');
+                const btnWrap = document.getElementById('welcome-unit-buttons');
+                if (sel) sel.innerHTML = '';
+                if (btnWrap) btnWrap.innerHTML = '';
+                data.units.forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.textContent = u.title;
+                    if (sel) sel.appendChild(opt);
+                    if (btnWrap) {
+                        const a = document.createElement('a');
+                        a.href = `/select?unit=${u.id}`;
+                        a.className = 'text-center bg-blue-600 text-white px-4 py-3 rounded hover:bg-blue-700 block';
+                        a.textContent = u.title;
+                        btnWrap.appendChild(a);
+                    }
+                });
+                if (data.units.length) activityState.unitId = data.units[0].id;
+                if (sel) sel.addEventListener('change', e => activityState.unitId = e.target.value);
+            } catch (e) {
+                console.error('Failed to load units', e);
+            }
+        }
+
+        function renderRound(round) {
+            const area = document.getElementById('matching-area');
+            area.classList.remove('hidden');
+            // Do NOT show the full authoring prompt to students; show concise, student-facing instructions
+            document.getElementById('matching-instructions').textContent =
+              'Match each character on the left with its correct English/Pinyin on the right. Select a character, then select its match. Make all pairs, then click "Check Answers".';
+
+            const L = document.getElementById('matching-left');
+            const R = document.getElementById('matching-right');
+            L.innerHTML = '';
+            R.innerHTML = '';
+            activityState.left = round.left;
+            activityState.right = round.right;
+            activityState.pairs = [];
+            document.getElementById('selected-pairs').innerHTML = '';
+            document.getElementById('matching-feedback').innerHTML = '';
+            document.getElementById('btn-next-round').classList.add('hidden');
+
+            // Render left items
+            activityState.left.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'border rounded p-2 cursor-pointer hover:bg-gray-50';
+                li.textContent = item.hanzi;
+                li.dataset.id = item.id;
+                li.onclick = () => selectLeft(item.id);
+                L.appendChild(li);
+            });
+
+            // Render right items
+            activityState.right.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'border rounded p-2 cursor-pointer hover:bg-gray-50';
+                li.innerHTML = `<div class="font-medium">${item.english}</div><div class="text-xs text-gray-600">${item.pinyin}</div>`;
+                li.dataset.id = item.id;
+                li.dataset.english = item.english;
+                li.onclick = () => selectRight(item.id);
+                R.appendChild(li);
+            });
+        }
+
+        let pendingLeft = null;
+        function selectLeft(leftId) {
+            pendingLeft = leftId;
+            [...document.querySelectorAll('#matching-left li')].forEach(li => li.classList.remove('ring','ring-blue-400'));
+            const el = [...document.querySelectorAll('#matching-left li')].find(li => li.dataset.id === leftId);
+            if (el) el.classList.add('ring','ring-blue-400');
+        }
+
+        function selectRight(rightId) {
+            if (!pendingLeft) return;
+            const leftItem = activityState.left.find(x => x.id === pendingLeft);
+            const rightItem = activityState.right.find(x => x.id === rightId);
+            // Prevent duplicate pairing on either side
+            if (activityState.pairs.find(p => p.leftId === pendingLeft || p.rightId === rightId)) return;
+            activityState.pairs.push({
+                leftId: leftItem.id,
+                leftHanzi: leftItem.hanzi,
+                rightId: rightItem.id,
+                rightEnglish: rightItem.english,
+            });
+            // Mark as selected
+            const LEl = [...document.querySelectorAll('#matching-left li')].find(li => li.dataset.id === leftItem.id);
+            const REl = [...document.querySelectorAll('#matching-right li')].find(li => li.dataset.id === rightItem.id);
+            if (LEl) LEl.classList.add('bg-blue-50','opacity-75');
+            if (REl) REl.classList.add('bg-blue-50','opacity-75');
+            pendingLeft = null;
+
+            // Show in selected list
+            const sel = document.getElementById('selected-pairs');
+            const li = document.createElement('li');
+            li.textContent = `${leftItem.hanzi}  ↔  ${rightItem.english}`;
+            sel.appendChild(li);
+        }
+
+        async function startMatching() {
+            if (!activityState.unitId) return;
+            const res = await fetch('/activity/matching/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ unitId: activityState.unitId, size: activityState.size, missed: activityState.missed })
+            });
+            const data = await res.json();
+            if (data.error) { console.error(data.error); return; }
+            renderRound(data);
+        }
+
+        async function submitMatching() {
+            if (!activityState.unitId) return;
+            const res = await fetch('/activity/matching/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ unitId: activityState.unitId, pairs: activityState.pairs })
+            });
+            const data = await res.json();
+            if (data.error) { document.getElementById('matching-feedback').textContent = data.error; return; }
+            activityState.missed = data.missed || [];
+            activityState.size = data.nextSize || activityState.size;
+            // Feedback rendering
+            const fb = document.getElementById('matching-feedback');
+            fb.innerHTML = `<div class="font-medium">${data.feedback}</div>`;
+            if (data.incorrect?.length) {
+                const ul = document.createElement('ul');
+                ul.className = 'mt-2 text-sm text-red-700 list-disc list-inside';
+                data.incorrect.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = `${item.leftHanzi} → ${item.rightEnglish || '—'} (correct: ${item.expectedEnglish})`;
+                    ul.appendChild(li);
+                });
+                fb.appendChild(ul);
+            }
+            document.getElementById('btn-next-round').classList.remove('hidden');
+        }
+
+        document.getElementById('btn-start-matching')?.addEventListener('click', async () => {
+            // Toggle views
+            document.getElementById('matching-area').classList.remove('hidden');
+            document.getElementById('roleplay-area').classList.add('hidden');
+            await startMatching();
+        });
+        document.getElementById('btn-submit-matching')?.addEventListener('click', submitMatching);
+        document.getElementById('btn-next-round')?.addEventListener('click', startMatching);
+
+        // -------- Role Play wiring --------
+        const roleplayState = {
+            unitId: null,
+            history: [] // {role:'user'|'assistant', content}
+        };
+
+        function appendTranscript(role, content) {
+            const wrap = document.getElementById('roleplay-transcript');
+            const row = document.createElement('div');
+            row.className = `mb-2 ${role === 'user' ? 'text-right' : ''}`;
+            const bubble = document.createElement('div');
+            bubble.className = `inline-block px-3 py-2 rounded ${role === 'user' ? 'bg-blue-100' : 'bg-gray-200'}`;
+
+            if (role === 'user') {
+                bubble.innerHTML = content.replace(/\n/g, '<br>');
+            } else {
+                // Chinese-only (preserve CJK punctuation & spacing)
+                const chineseOnly = content
+                    .replace(/[^\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\u{2a700}-\u{2b73f}\u{2b740}-\u{2b81f}\u{2b820}-\u{2ceaf}\u{f900}-\u{faff}\u{2f800}-\u{2fa1f}\u3000-\u303F\uFF00-\uFFEF\s]+/gu, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                const zh = document.createElement('div');
+                zh.className = 'chinese';
+                zh.textContent = chineseOnly || content;
+                bubble.appendChild(zh);
+
+                // Build hidden details: Pinyin first, then English
+                const details = document.createElement('div');
+                details.className = 'mt-2 text-xs text-gray-800 hidden';
+                // pinyin inside () or （）
+                const pMatches = [...content.matchAll(/[（(]([^）)]+)[)）]/g)];
+                const pinyinText = pMatches.map(m => m[1]).join(' ').trim();
+                const pin = document.createElement('div');
+                pin.className = 'pinyin';
+                pin.textContent = pinyinText || '[No pinyin detected]';
+                details.appendChild(pin);
+                // english: remove parentheses chunks, then strip CJK blocks
+                const withoutParens = content.replace(/\([^)]*\)|（[^）]*）/g, ' ');
+                const englishOnly = withoutParens
+                    .replace(/[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\u{2a700}-\u{2b73f}\u{2b740}-\u{2b81f}\u{2b820}-\u{2ceaf}\u{f900}-\u{faff}\u{2f800}-\u{2fa1f}\u3000-\u303F\uFF00-\uFFEF]+/gu, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                const en = document.createElement('div');
+                en.className = 'mt-1';
+                en.textContent = englishOnly || '[No English detected]';
+                details.appendChild(en);
+                bubble.appendChild(details);
+
+                // Controls: Play + Toggle details
+                const controls = document.createElement('div');
+                controls.className = 'mt-2 flex items-center gap-2';
+                const playBtn = document.createElement('button');
+                playBtn.textContent = '▶️ Play audio';
+                playBtn.className = 'text-xs bg-gray-300 hover:bg-gray-400 px-2 py-1 rounded';
+                playBtn.onclick = () => playTTS(content);
+                controls.appendChild(playBtn);
+                const toggleBtn = document.createElement('button');
+                toggleBtn.textContent = 'Show Pinyin & English';
+                toggleBtn.className = 'text-xs bg-gray-300 hover:bg-gray-400 px-2 py-1 rounded';
+                toggleBtn.onclick = () => {
+                    const hidden = details.classList.contains('hidden');
+                    if (hidden) {
+                        details.classList.remove('hidden');
+                        toggleBtn.textContent = 'Hide Pinyin & English';
+                    } else {
+                        details.classList.add('hidden');
+                        toggleBtn.textContent = 'Show Pinyin & English';
+                    }
+                };
+                controls.appendChild(toggleBtn);
+                bubble.appendChild(controls);
+            }
+
+            row.appendChild(bubble);
+            wrap.appendChild(row);
+            wrap.scrollTop = wrap.scrollHeight;
+        }
+
+        async function startRoleplay() {
+            try {
+                roleplayState.unitId = activityState.unitId;
+                if (!roleplayState.unitId) return;
+                document.getElementById('roleplay-error').textContent = '';
+                document.getElementById('roleplay-transcript').innerHTML = '';
+                roleplayState.history = [];
+                const res = await fetch('/activity/roleplay/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ unitId: roleplayState.unitId })
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || 'Failed to start role play');
+                appendTranscript('assistant', data.opening);
+                roleplayState.history.push({ role: 'assistant', content: data.opening });
+            } catch (e) {
+                document.getElementById('roleplay-error').textContent = e.message;
+            }
+        }
+
+        async function sendRoleplay() {
+            try {
+                const input = document.getElementById('roleplay-input');
+                const message = input.value.trim();
+                if (!message) return;
+                input.value = '';
+                appendTranscript('user', message);
+                roleplayState.history.push({ role: 'user', content: message });
+                const res = await fetch('/activity/roleplay/turn', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ unitId: roleplayState.unitId, history: roleplayState.history, message })
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || 'Failed to continue role play');
+                appendTranscript('assistant', data.reply);
+                roleplayState.history.push({ role: 'assistant', content: data.reply });
+            } catch (e) {
+                document.getElementById('roleplay-error').textContent = e.message;
+            }
+        }
+
+        document.getElementById('btn-start-roleplay')?.addEventListener('click', async () => {
+            // Toggle views
+            document.getElementById('matching-area').classList.add('hidden');
+            document.getElementById('roleplay-area').classList.remove('hidden');
+            await startRoleplay();
+        });
+        // Welcome panel buttons: set unit, reveal activities, and start chosen activity
+        document.getElementById('welcome-matching')?.addEventListener('click', async () => {
+            const selWelcome = document.getElementById('welcome-unit-select');
+            if (selWelcome && selWelcome.value) activityState.unitId = selWelcome.value;
+            // sync visible unit select
+            const sel = document.getElementById('unit-select');
+            if (sel && activityState.unitId) sel.value = activityState.unitId;
+            document.getElementById('welcome-panel').classList.add('hidden');
+            document.getElementById('activities-panel').classList.remove('hidden');
+            // Auto start matching
+            document.getElementById('matching-area').classList.remove('hidden');
+            document.getElementById('roleplay-area').classList.add('hidden');
+            await startMatching();
+        });
+        document.getElementById('welcome-roleplay')?.addEventListener('click', async () => {
+            const selWelcome = document.getElementById('welcome-unit-select');
+            if (selWelcome && selWelcome.value) activityState.unitId = selWelcome.value;
+            const sel = document.getElementById('unit-select');
+            if (sel && activityState.unitId) sel.value = activityState.unitId;
+            document.getElementById('welcome-panel').classList.add('hidden');
+            document.getElementById('activities-panel').classList.remove('hidden');
+            // Auto start role play
+            document.getElementById('matching-area').classList.add('hidden');
+            document.getElementById('roleplay-area').classList.remove('hidden');
+            await startRoleplay();
+        });
+        document.getElementById('btn-roleplay-send')?.addEventListener('click', sendRoleplay);
+        document.getElementById('roleplay-input')?.addEventListener('keyup', (e) => { if (e.key === 'Enter') sendRoleplay(); });
+
+        // Load units on page ready
+        loadUnits();
+        let conversationHistory = [];
+
+        function formatMessage(message, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
+            
+            // Simple formatting for Chinese and pinyin
+            let formattedContent = message;
+            
+            // Replace pinyin in parentheses with styled spans
+            formattedContent = formattedContent.replace(/([（(])([^)）]+)([)）])/g, 
+                (match, p1, p2, p3) => 
+                    `<span class="pinyin">${p2}</span>`);
+            
+            // Add line breaks for better readability
+            formattedContent = formattedContent.replace(/\n/g, '<br>');
+            
+            messageDiv.innerHTML = formattedContent;
+            return messageDiv;
+        }
+
+        function addMessage(content, isUser = false) {
+            const chatMessages = document.getElementById('chat-messages');
+
+            // Base container for the message bubble
+            const bubble = document.createElement('div');
+            bubble.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
+
+            if (isUser) {
+                // For user messages, render as-is
+                const userEl = formatMessage(content, true);
+                bubble.innerHTML = userEl.innerHTML;
+            } else {
+                // For assistant messages, default to Chinese-only display (preserve Chinese punctuation)
+                const fullEl = formatMessage(content, false);
+
+                // Build Chinese-only text by removing non-CJK and non-CJK-punctuation (keep whitespace)
+                const chineseOnly = content
+                    .replace(/[^\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\u{2a700}-\u{2b73f}\u{2b740}-\u{2b81f}\u{2b820}-\u{2ceaf}\u{f900}-\u{faff}\u{2f800}-\u{2fa1f}\u3000-\u303F\uFF00-\uFFEF\s]+/gu, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                // Visible Chinese-only block
+                const zhBlock = document.createElement('div');
+                zhBlock.className = 'chinese';
+                zhBlock.textContent = chineseOnly || content; // fallback
+                bubble.appendChild(zhBlock);
+
+                // Hidden details block with Pinyin first, then English
+                const details = document.createElement('div');
+                details.className = 'mt-2 text-sm text-gray-800 hidden';
+
+                // Extract Pinyin: text inside () or （）
+                const pinyinMatches = [...content.matchAll(/[（(]([^）)]+)[)）]/g)];
+                const pinyinText = pinyinMatches.map(m => m[1]).join(' ').trim();
+
+                // Extract English: remove parentheses blocks, then strip all CJK chars & CJK punctuation
+                const withoutParens = content.replace(/\([^)]*\)|（[^）]*）/g, ' ');
+                const englishOnly = withoutParens
+                    .replace(/[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\u{2a700}-\u{2b73f}\u{2b740}-\u{2b81f}\u{2b820}-\u{2ceaf}\u{f900}-\u{faff}\u{2f800}-\u{2fa1f}\u3000-\u303F\uFF00-\uFFEF]+/gu, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                const pinEl = document.createElement('div');
+                pinEl.className = 'pinyin';
+                pinEl.textContent = pinyinText || '[No pinyin detected]';
+                details.appendChild(pinEl);
+
+                const enEl = document.createElement('div');
+                enEl.className = 'mt-1';
+                enEl.textContent = englishOnly || '[No English detected]';
+                details.appendChild(enEl);
+
+                bubble.appendChild(details);
+
+                // Controls: Play audio + toggle details
+                const controls = document.createElement('div');
+                controls.className = 'mt-2 flex items-center gap-2';
+
+                const playBtn = document.createElement('button');
+                playBtn.textContent = '▶️ Play audio';
+                playBtn.className = 'text-sm bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded';
+                playBtn.onclick = () => playTTS(content);
+                controls.appendChild(playBtn);
+
+                const toggleBtn = document.createElement('button');
+                toggleBtn.textContent = 'Show Pinyin & English';
+                toggleBtn.className = 'text-sm bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded';
+                toggleBtn.onclick = () => {
+                    const hidden = details.classList.contains('hidden');
+                    if (hidden) {
+                        details.classList.remove('hidden');
+                        toggleBtn.textContent = 'Hide Pinyin & English';
+                    } else {
+                        details.classList.add('hidden');
+                        toggleBtn.textContent = 'Show Pinyin & English';
+                    }
+                };
+                controls.appendChild(toggleBtn);
+
+                bubble.appendChild(controls);
+            }
+
+            chatMessages.appendChild(bubble);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const userInput = document.getElementById('user-input');
+            const message = userInput.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat immediately for better UX
+            addMessage(message, true);
+        
+            // Add to conversation history
+            conversationHistory.push({
+                role: 'user',
+                content: message
+            });
+        
+            // Disable input while waiting for response
+            const input = document.getElementById('user-input');
+            const sendButton = input.nextElementSibling;
+            input.disabled = true;
+            sendButton.disabled = true;
+
+            try {
+                // Show typing indicator
+                const typingIndicator = document.createElement('div');
+                typingIndicator.id = 'typing';
+                typingIndicator.className = 'message assistant-message';
+                typingIndicator.textContent = 'Typing...';
+                document.getElementById('chat-messages').appendChild(typingIndicator);
+                
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation: conversationHistory
+                    })
+                });
+                
+                // Remove typing indicator
+                if (typingIndicator && typingIndicator.parentNode) {
+                    document.getElementById('chat-messages').removeChild(typingIndicator);
+                }
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server error:', errorText);
+                    throw new Error(`Server error: ${response.status} ${response.statusText}. ${errorText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error('Error in response:', data.error);
+                    throw new Error(data.error);
+                }
+                
+                // Add assistant's response to chat
+                addMessage(data.response);
+                
+                // Add to conversation history
+                conversationHistory.push({
+                    role: 'assistant',
+                    content: data.response
+                });
+                
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`Sorry, I encountered an error: ${error.message}`, false);
+            }
+        }
+
+        function suggestPhrase(phrase) {
+            const input = document.getElementById('user-input');
+            input.value = phrase;
+            input.focus();
+        }
+
+        // Allow sending message with Enter key
+        const userInputEl = document.getElementById('user-input');
+        if (userInputEl) {
+            userInputEl.addEventListener('keyup', function(event) {
+                if (event.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        }
+
+        async function playTTS(text) {
+            try {
+                const voiceEl = document.getElementById('voice-select');
+                const voice = (voiceEl && voiceEl.value) ? voiceEl.value : 'alloy';
+                // Extract CJK text and CJK punctuation (preserve punctuation and spacing)
+                const speakText = text
+                    .replace(/[^\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\u{2a700}-\u{2b73f}\u{2b740}-\u{2b81f}\u{2b820}-\u{2ceaf}\u{f900}-\u{faff}\u{2f800}-\u{2fa1f}\u3000-\u303F\uFF00-\uFFEF\s]+/gu, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                if (!speakText) {
+                    addMessage('No Chinese text detected to read aloud.', false);
+                    return;
+                }
+                const res = await fetch('/tts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: speakText, voice })
+                });
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(`${res.status} ${res.statusText}: ${errText}`);
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const audio = new Audio(url);
+                audio.play();
+            } catch (e) {
+                console.error('TTS error:', e);
+                addMessage(`Sorry, TTS failed: ${e.message}`, false);
+            }
+        }
+    </script>
+</body>
+</html>

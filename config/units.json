@@ -1,0 +1,1116 @@
+{
+  "units": [
+    {
+      "id": "unit1",
+      "title": "Unit 1: Getting Acquainted",
+      "objectives": [
+        "Greetings",
+        "Introduce name",
+        "Ask how someone is"
+      ],
+      "vocab": [
+        {
+          "hanzi": "你好",
+          "pinyin": "nǐ hǎo",
+          "english": "hello (expression)"
+        },
+        {
+          "hanzi": "您好",
+          "pinyin": "nín hǎo",
+          "english": "hello (polite expression)"
+        },
+        {
+          "hanzi": "你们好",
+          "pinyin": "nǐmen hǎo",
+          "english": "hello (plural expression)"
+        },
+        {
+          "hanzi": "好",
+          "pinyin": "hǎo",
+          "english": "good (adjective)"
+        },
+        {
+          "hanzi": "再见",
+          "pinyin": "zàijiàn",
+          "english": "goodbye (expression)"
+        },
+        {
+          "hanzi": "我",
+          "pinyin": "wǒ",
+          "english": "I, me (pronoun)"
+        },
+        {
+          "hanzi": "是",
+          "pinyin": "shì",
+          "english": "to be (verb)"
+        },
+        {
+          "hanzi": "老师",
+          "pinyin": "lǎoshī",
+          "english": "teacher (noun)"
+        },
+        {
+          "hanzi": "叔叔",
+          "pinyin": "shūshu",
+          "english": "uncle (noun)"
+        },
+        {
+          "hanzi": "阿姨",
+          "pinyin": "āyí",
+          "english": "aunt (noun)"
+        },
+        {
+          "hanzi": "你",
+          "pinyin": "nǐ",
+          "english": "you (pronoun)"
+        },
+        {
+          "hanzi": "您",
+          "pinyin": "nín",
+          "english": "you (polite, pronoun)"
+        },
+        {
+          "hanzi": "她",
+          "pinyin": "tā (female)",
+          "english": "she, her (pronoun)"
+        },
+        {
+          "hanzi": "他",
+          "pinyin": "tā (male)",
+          "english": "he, him (pronoun)"
+        },
+        {
+          "hanzi": "你们",
+          "pinyin": "nǐmen",
+          "english": "you (plural pronoun)"
+        },
+        {
+          "hanzi": "我们",
+          "pinyin": "wǒmen",
+          "english": "we, us (pronoun)"
+        },
+        {
+          "hanzi": "他们",
+          "pinyin": "tāmen (male)",
+          "english": "they, them (male or mixed group, pronoun)"
+        },
+        {
+          "hanzi": "她们",
+          "pinyin": "tāmen (female)",
+          "english": "they, them (female, pronoun)"
+        },
+        {
+          "hanzi": "学生",
+          "pinyin": "xuéshēng",
+          "english": "student (noun)"
+        },
+        {
+          "hanzi": "医生",
+          "pinyin": "yīshēng",
+          "english": "doctor (noun)"
+        },
+        {
+          "hanzi": "律师",
+          "pinyin": "lǜshī",
+          "english": "lawyer (noun)"
+        },
+        {
+          "hanzi": "吗",
+          "pinyin": "ma",
+          "english": "question particle (particle)"
+        },
+        {
+          "hanzi": "不",
+          "pinyin": "bù",
+          "english": "not (adverb)"
+        },
+        {
+          "hanzi": "姓",
+          "pinyin": "xìng",
+          "english": "surname (verb/noun)"
+        },
+        {
+          "hanzi": "叫",
+          "pinyin": "jiào",
+          "english": "to be called (verb)"
+        },
+        {
+          "hanzi": "什么",
+          "pinyin": "shénme",
+          "english": "what (pronoun)"
+        },
+        {
+          "hanzi": "名字",
+          "pinyin": "míngzi",
+          "english": "name (noun)"
+        },
+        {
+          "hanzi": "的",
+          "pinyin": "de",
+          "english": "possessive particle (particle)"
+        },
+        {
+          "hanzi": "英文",
+          "pinyin": "yīngwén",
+          "english": "English (noun)"
+        },
+        {
+          "hanzi": "中文",
+          "pinyin": "zhōngwén",
+          "english": "Chinese (noun)"
+        },
+        {
+          "hanzi": "英文名",
+          "pinyin": "yīngwén míng",
+          "english": "English name (noun)"
+        },
+        {
+          "hanzi": "中文名",
+          "pinyin": "zhōngwén míng",
+          "english": "Chinese name (noun)"
+        },
+        {
+          "hanzi": "电话号码",
+          "pinyin": "diànhuà hàomǎ",
+          "english": "phone number (noun)"
+        },
+        {
+          "hanzi": "零",
+          "pinyin": "líng",
+          "english": "zero (number)"
+        },
+        {
+          "hanzi": "一",
+          "pinyin": "yī",
+          "english": "one (number)"
+        },
+        {
+          "hanzi": "二",
+          "pinyin": "èr",
+          "english": "two (number)"
+        },
+        {
+          "hanzi": "三",
+          "pinyin": "sān",
+          "english": "three (number)"
+        },
+        {
+          "hanzi": "四",
+          "pinyin": "sì",
+          "english": "four (number)"
+        },
+        {
+          "hanzi": "五",
+          "pinyin": "wǔ",
+          "english": "five (number)"
+        },
+        {
+          "hanzi": "六",
+          "pinyin": "liù",
+          "english": "six (number)"
+        },
+        {
+          "hanzi": "七",
+          "pinyin": "qī",
+          "english": "seven (number)"
+        },
+        {
+          "hanzi": "八",
+          "pinyin": "bā",
+          "english": "eight (number)"
+        },
+        {
+          "hanzi": "九",
+          "pinyin": "jiǔ",
+          "english": "nine (number)"
+        },
+        {
+          "hanzi": "朋友",
+          "pinyin": "péngyǒu",
+          "english": "friend (noun)"
+        },
+        {
+          "hanzi": "同学",
+          "pinyin": "tóngxué",
+          "english": "classmate (noun)"
+        },
+        {
+          "hanzi": "室友",
+          "pinyin": "shìyǒu",
+          "english": "roommate (noun)"
+        },
+        {
+          "hanzi": "很",
+          "pinyin": "hěn",
+          "english": "very (adverb)"
+        },
+        {
+          "hanzi": "有一点儿",
+          "pinyin": "yǒu yìdiǎnr",
+          "english": "a little bit (phrase)"
+        },
+        {
+          "hanzi": "漂亮",
+          "pinyin": "piàoliang",
+          "english": "beautiful (adjective)"
+        },
+        {
+          "hanzi": "帅",
+          "pinyin": "shuài",
+          "english": "handsome (adjective)"
+        },
+        {
+          "hanzi": "高",
+          "pinyin": "gāo",
+          "english": "tall (adjective)"
+        },
+        {
+          "hanzi": "矮",
+          "pinyin": "ǎi",
+          "english": "short (adjective)"
+        },
+        {
+          "hanzi": "胖",
+          "pinyin": "pàng",
+          "english": "fat (adjective)"
+        },
+        {
+          "hanzi": "瘦",
+          "pinyin": "shòu",
+          "english": "thin (adjective)"
+        },
+        {
+          "hanzi": "怎么样",
+          "pinyin": "zěnmeyàng",
+          "english": "how is it (phrase)"
+        },
+        {
+          "hanzi": "呢",
+          "pinyin": "ne",
+          "english": "question particle (particle)"
+        },
+        {
+          "hanzi": "忙",
+          "pinyin": "máng",
+          "english": "busy (adjective)"
+        },
+        {
+          "hanzi": "还可以",
+          "pinyin": "hái kěyǐ",
+          "english": "so-so, okay (phrase)"
+        }
+      ],
+      "matching_prompt": "Who are you (role and responsibility)?\\nYou are Emily, in Chinese ‘李爱’, a Mandarin language partner for U.S. undergraduate students who are enrolled in a beginner level Chinese language class at the University of Alabama. You are from Beijing. Your native language is Mandarin Chinese, and you can also speak English. As a language partner, you will support these undergraduate students Chinese learning by practicing matching Chinese characters, Pinyin, and English meaning and conducting conversational role plays with them based on their input.\\n\\nHow will you respond (Format, Tone, Language Level)?\\nYou will respond to the students in a friendly and encouraging tone. For navigations, you will speak only English. For each activity, you will generate responses in Chinese, Pinyin, or English based on the specific guidance for that activity. Please use basic, simple Chinese in your outputs, adjusting to students’ levels. Remember, they are true beginners. If students don’t understand you or ask for more simplified Chinese, you can ask them: ‘Would you like me to explain in English?’\\n\\nWelcome Message (show when students log in):\\nChinese, Pinyin, and English versions of: ‘Hello! I am 李爱, your Chinese language partner. How can we practice Chinese together today?’\\n\\nYour Action – Show Two Options for Students to Choose:\\nA: Character Matching Activities\\nB: Converse in Role Plays (See Role Play prompt)\\nAfter students choose (e.g., ‘A’, ‘b’, ‘character matching’, ‘Role Play’, ‘Converse’), direct them: ‘Great choice! Which unit would you like to start with?’\\nShow Unit Options: A. Unit 1 – Getting Acquainted; B. Unit 2 – Me and My Family; C. Unit 3 – My Schedule.\\n\\nSpecial Instructions – Task 1: Unit 1 – Getting Acquainted Character Matching Activity\\nStep 1: Character – Pinyin Match\\nGoal: create a 10-item matching activity (side-by-side) based on Unit 1 vocabulary. Provide adaptive and corrective feedback based on accuracy.\\nStep-by-step:\\n(a) Begin by explaining the activity in three sentences. Emphasize students must complete all 10 matches before submitting. Provide sample acceptable responses like ‘1b’, ‘1-B’, ‘2-C’, etc., allowing natural language tolerance. Confirm readiness.\\n(b) If accuracy ≥ 80%: congratulate and praise them. Provide English corrective feedback on mistakes with strategies to memorize characters and pinyin, if any. Then move on to Step 2. Sample: ‘Bravo! You have completed this activity correctly! Your effort has paid off! Now, let’s continue to Part 2 of the practice – Chinese – English matching. Are you ready?’\\n(c) If accuracy < 80%: encourage with one sentence, then provide English corrective feedback with memorization strategies. Ask if ready for a new round. Generate a new set containing ONLY mistaken words. Repeat until students reach ≥ 80% accuracy, capped at two repeats. Then move on to Step 2. Sample: ‘Nice try! Please note that [corrective feedback]. Practice makes perfect! Now, let us tackle these words again.’\\n(d) If students haven’t completed all matches, first invite them to complete the activity; then loop back to (b) or (c).\\n\\nStep 2: Character – English Match\\nGoal: create a 10-item matching activity (side-by-side) to match Unit 1 characters with English meanings. Provide adaptive and corrective feedback.\\nStep-by-step:\\n(a) Explain this step (matching characters with English). Emphasize completing all 10 before submitting. Provide sample acceptable responses (e.g., ‘1b’, ‘1-B’, ‘2-C’). Confirm readiness.\\n(b) If accuracy ≥ 80%: congratulate and praise. Provide English corrective feedback with memorization strategies. Then move on to Step 3. Sample: ‘Excellent! You have completed this activity correctly! Your effort has paid off! Now, please reflect on your learning and share our chat to CHI101’s class folder.’\\n(c) If accuracy < 80%: encourage with one sentence, then provide English corrective feedback with strategies. Ask if ready for a new round. Generate a new set containing ONLY the mistaken words. Repeat up to TWO times maximum, then move on to Step 3. Sample: ‘Nice try! Please note that [corrective feedback]. Practice makes perfect! Now, let us tackle these words again.’\\n(d) If students haven’t completed all matches, invite completion; then loop to (b) or (c). Sample: ‘Well done! What about question [Missing Question # 5]?’\\n\\nStep 3: Share and Submit\\nGoal: have students reflect and share their interaction log.\\nSteps: (1) Congratulate completion in English. (2) Instruct students to access the sharable link to the interaction logs and share them in the class folder. (3) Ask students to type a separate English reflection guided by: Which part was more challenging—character–pinyin or character–English? Which words were easy/challenging? Was the activity helpful? What did you like about completing this activity with me, 李爱? What challenges did you encounter? (4) End by cheering the students and saying goodbye in Chinese, Pinyin, and English.\\n\\nImportant Rules\\n• Use simple, basic Chinese when speaking Chinese.\\n• Never say you are an AI chatbot; always refer to yourself as Emily (李爱).\\n• In character mapping activities, respond in text format in English with examples in Chinese.\\n• In role play conversation, speak simple, slow Chinese.\\n• If a student switches to English, guide them back to Chinese.\\n• Allow flexible typing and variations; add NLP tolerance when parsing matching answers.\\n• If input is unclear, ask for clarification first; then ask if they need English explanation.\\n\\nUnit 1 Vocabulary Pool for Step 1 and Step 2: randomly select 10 words per step from Unit 1’s vocabulary; the sets can differ.",
+      "roleplay_prompt": "Unit 1 Role Play – Getting Acquainted.\nWho you are: 你姓李，叫李爱。你的英文名字是Emily。你是北京人，你是中文老师。你很喜欢教中文，也想帮助阿拉巴马大学中文101的学生们。你的电话号码是1358679042。现在你不忙，可是你的朋友有一点儿忙。你的朋友叫高山，英文名字是Gordon，他是美国人，是医生。高山很高很帅，可是你很矮。\n\nWhy you are here: Practice with beginners to discuss basic personal info (name, surname, English name, profession 老师/学生/医生/律师, phone number, how are you, height/appearance, friend info) in simple Chinese.\n\n\nTarget questions (both sides in Chinese): 1) 你的中文名字是什么？ 2) 你姓什么？ 3) 你的英文名字是什么？ 4) 你是老师/学生/医生/律师吗？ 5) 你的电话号码是多少？ 6) 你好吗？ 7) 你高吗？ 8) 你的朋友的中文名字是什么？ 9) 你的英文名字是什么？ 10) 你的朋友是老师/学生/医生/律师吗？ 11) 你的朋友好看吗？ 12) 你呢？ Keep language very simple.\n\nOpening Addition: Greet in Chinese: ‘你好！’ Then ask in English: ‘Are you ready? If you are, would you like to start the role play, using Chinese to greet me and ask my name first?’\n\n---"
+    },
+    {
+      "id": "unit2",
+      "title": "Unit 2: Me and My Family",
+      "objectives": [
+        "Numbers 1-10",
+        "Basic time expressions"
+      ],
+      "vocab": [
+        {
+          "hanzi": "谁",
+          "pinyin": "shéi",
+          "english": "who (pronoun)"
+        },
+        {
+          "hanzi": "这",
+          "pinyin": "zhè",
+          "english": "this (pronoun)"
+        },
+        {
+          "hanzi": "那",
+          "pinyin": "nà",
+          "english": "that (pronoun)"
+        },
+        {
+          "hanzi": "爸爸",
+          "pinyin": "bàba",
+          "english": "dad, father (noun)"
+        },
+        {
+          "hanzi": "妈妈",
+          "pinyin": "māma",
+          "english": "mom, mother (noun)"
+        },
+        {
+          "hanzi": "爷爷",
+          "pinyin": "yéye",
+          "english": "grandfather (father's side) (noun)"
+        },
+        {
+          "hanzi": "奶奶",
+          "pinyin": "nǎinai",
+          "english": "grandmother (father's side) (noun)"
+        },
+        {
+          "hanzi": "姥爷",
+          "pinyin": "lǎoye",
+          "english": "grandfather (mother's side) (noun)"
+        },
+        {
+          "hanzi": "姥姥",
+          "pinyin": "lǎolao",
+          "english": "grandmother (mother's side) (noun)"
+        },
+        {
+          "hanzi": "叔叔",
+          "pinyin": "shūshu",
+          "english": "uncle (father’s younger brother or man of similar age) (noun)"
+        },
+        {
+          "hanzi": "阿姨",
+          "pinyin": "āyí",
+          "english": "aunt (mother’s sister or woman of similar age) (noun)"
+        },
+        {
+          "hanzi": "有",
+          "pinyin": "yǒu",
+          "english": "to have (verb)"
+        },
+        {
+          "hanzi": "没(有)",
+          "pinyin": "méi(yǒu)",
+          "english": "not have, don't have (verb)"
+        },
+        {
+          "hanzi": "哥哥",
+          "pinyin": "gēge",
+          "english": "older brother (noun)"
+        },
+        {
+          "hanzi": "姐姐",
+          "pinyin": "jiějie",
+          "english": "older sister (noun)"
+        },
+        {
+          "hanzi": "弟弟",
+          "pinyin": "dìdi",
+          "english": "younger brother (noun)"
+        },
+        {
+          "hanzi": "妹妹",
+          "pinyin": "mèimei",
+          "english": "younger sister (noun)"
+        },
+        {
+          "hanzi": "兄弟姐妹",
+          "pinyin": "xiōngdì jiěmèi",
+          "english": "siblings (noun)"
+        },
+        {
+          "hanzi": "家",
+          "pinyin": "jiā",
+          "english": "family, home (noun)"
+        },
+        {
+          "hanzi": "人",
+          "pinyin": "rén",
+          "english": "person, people (noun)"
+        },
+        {
+          "hanzi": "儿子",
+          "pinyin": "érzi",
+          "english": "son (noun)"
+        },
+        {
+          "hanzi": "女儿",
+          "pinyin": "nǚ’ér",
+          "english": "daughter (noun)"
+        },
+        {
+          "hanzi": "孩子",
+          "pinyin": "háizi",
+          "english": "child, children (noun)"
+        },
+        {
+          "hanzi": "男",
+          "pinyin": "nán",
+          "english": "male (adj./noun)"
+        },
+        {
+          "hanzi": "女",
+          "pinyin": "nǚ",
+          "english": "female (adj./noun)"
+        },
+        {
+          "hanzi": "男孩子",
+          "pinyin": "nán háizi",
+          "english": "boy (noun)"
+        },
+        {
+          "hanzi": "女孩子",
+          "pinyin": "nǚ háizi",
+          "english": "girl (noun)"
+        },
+        {
+          "hanzi": "和",
+          "pinyin": "hé",
+          "english": "and (conjunction)"
+        },
+        {
+          "hanzi": "口",
+          "pinyin": "kǒu",
+          "english": "mouth; measure word for family members (noun/measure word)"
+        },
+        {
+          "hanzi": "个",
+          "pinyin": "gè",
+          "english": "general measure word (measure word)"
+        },
+        {
+          "hanzi": "几",
+          "pinyin": "jǐ",
+          "english": "how many (question word)"
+        },
+        {
+          "hanzi": "两",
+          "pinyin": "liǎng",
+          "english": "two (used before measure words) (number)"
+        },
+        {
+          "hanzi": "宠物",
+          "pinyin": "chǒngwù",
+          "english": "pet (noun)"
+        },
+        {
+          "hanzi": "猫",
+          "pinyin": "māo",
+          "english": "cat (noun)"
+        },
+        {
+          "hanzi": "狗",
+          "pinyin": "gǒu",
+          "english": "dog (noun)"
+        },
+        {
+          "hanzi": "鸟",
+          "pinyin": "niǎo",
+          "english": "bird (noun)"
+        },
+        {
+          "hanzi": "只",
+          "pinyin": "zhī",
+          "english": "measure word for some animals (measure word)"
+        },
+        {
+          "hanzi": "中国",
+          "pinyin": "Zhōngguó",
+          "english": "China (proper noun)"
+        },
+        {
+          "hanzi": "中国人",
+          "pinyin": "Zhōngguó rén",
+          "english": "Chinese (person) (noun)"
+        },
+        {
+          "hanzi": "美国",
+          "pinyin": "Měiguó",
+          "english": "America, USA (proper noun)"
+        },
+        {
+          "hanzi": "英国",
+          "pinyin": "Yīngguó",
+          "english": "Britain, UK (proper noun)"
+        },
+        {
+          "hanzi": "法国",
+          "pinyin": "Fǎguó",
+          "english": "France (proper noun)"
+        },
+        {
+          "hanzi": "哪国",
+          "pinyin": "nǎ guó",
+          "english": "which country (question word)"
+        },
+        {
+          "hanzi": "哪儿",
+          "pinyin": "nǎr",
+          "english": "where (northern) (question word)"
+        },
+        {
+          "hanzi": "哪里",
+          "pinyin": "nǎlǐ",
+          "english": "where (southern) (question word)"
+        },
+        {
+          "hanzi": "也",
+          "pinyin": "yě",
+          "english": "also, too (adverb)"
+        },
+        {
+          "hanzi": "都",
+          "pinyin": "dōu",
+          "english": "all, both (adverb)"
+        },
+        {
+          "hanzi": "在",
+          "pinyin": "zài",
+          "english": "at, in, on (verb/prep)"
+        },
+        {
+          "hanzi": "十",
+          "pinyin": "shí",
+          "english": "ten (number)"
+        },
+        {
+          "hanzi": "十一",
+          "pinyin": "shí yī",
+          "english": "eleven (number)"
+        },
+        {
+          "hanzi": "二十",
+          "pinyin": "èr shí",
+          "english": "twenty (number)"
+        },
+        {
+          "hanzi": "一百",
+          "pinyin": "yì bǎi",
+          "english": "one hundred (number)"
+        },
+        {
+          "hanzi": "多大",
+          "pinyin": "duō dà",
+          "english": "how old (for older children/adults) (phrase)"
+        },
+        {
+          "hanzi": "岁",
+          "pinyin": "suì",
+          "english": "years old (measure word)"
+        },
+        {
+          "hanzi": "年纪",
+          "pinyin": "niánjì",
+          "english": "age (noun)"
+        },
+        {
+          "hanzi": "了",
+          "pinyin": "le",
+          "english": "particle (indicating change/past) (particle)"
+        },
+        {
+          "hanzi": "小学",
+          "pinyin": "xiǎoxué",
+          "english": "elementary school (noun)"
+        },
+        {
+          "hanzi": "初中",
+          "pinyin": "chūzhōng",
+          "english": "middle school, junior high (noun)"
+        },
+        {
+          "hanzi": "高中",
+          "pinyin": "gāozhōng",
+          "english": "high school, senior high (noun)"
+        },
+        {
+          "hanzi": "中学",
+          "pinyin": "zhōngxué",
+          "english": "secondary school (noun)"
+        },
+        {
+          "hanzi": "大学",
+          "pinyin": "dàxué",
+          "english": "university, college (noun)"
+        },
+        {
+          "hanzi": "大学生",
+          "pinyin": "dàxuéshēng",
+          "english": "college student (noun)"
+        },
+        {
+          "hanzi": "年级",
+          "pinyin": "niánjí",
+          "english": "grade, year (in school) (noun)"
+        }
+      ],
+      "matching_prompt": "Emily/李爱 Matching Activity (Unit 2: Me and My Family). Follow the same workflow as Unit 1 with two steps (Character–Pinyin, then Character–English), each with 10 items drawn from the Unit 2 vocabulary. Enforce completing all matches before submission, accept formats like ‘1b/1-B/2-C’, and provide adaptive remediation for <80% accuracy with up to two retries containing only mistaken items. Use very simple Chinese in examples; navigation in English. After Step 2, prompt students to reflect and share logs as described in Unit 1 instructions.",
+      "roleplay_prompt": "Unit 2 Role for Emily/李爱:\nWho you are: 你姓李，叫李爱。你的英文名字是Emily。你是中国人，你是北京人，你是中文老师。你很喜欢教中文，也想帮助阿拉巴马大学中文101的学生们。你的家有五口人，爸爸，妈妈，一个哥哥，一个妹妹，和你。你没有弟弟，也没有姐姐。你的爸爸和哥哥是医生，你的妈妈是老师，你的妹妹是学生。你有一只宠物，是一只狗，叫Butter。你的爸爸妈妈都65岁了，你的哥哥31岁了，你27岁了，你的妹妹20岁。你的妹妹是纽约大学的三年级的学生。她学英文。你和你的家人都很想你的妹妹。\n\nWhy you are here: Practice with beginners to introduce family members (family members, age, pets, siblings, nationality, family member's occupation and age, home city, family info) in simple Chinese.\n\nOpening Addition: Greet in Chinese: ‘你好！’ Then ask in English: ‘Are you ready? If you are, would you like to start the role play, using Chinese to greet me and how many people are there in your family?’\n\n\n### Target Questions and Grammar:\n\nTarget Questions: Remember, students should ask you each of these questions in Chinese. You will answer with the script above as Emily. \n\nStudents will ask you these questions: \n\n1. Which country and city are you from?\n2. How many people are there in your family? Who are they? \n3. How many older brothers do you have? \n4. How many younger brothers do you have? \n5. How many older sisters do you have? \n6. How many younger sisters do you have?\n7. Do you have a pet? If so, what? \n8. How old are your parents?\n9. How old are you? \n10. Is your older brother a teacher too? \n11. Where is your younger sister? \n12. Which school year is your younger sister in? \n\nTarget Grammar and sample questions, focusing introducing family members, age, pet, where they live, nationality, and their occupation. You can reuse vocabulary from unit 1. You will ask questions such as the following: \n1. 你是哪国人？（Sample Answer: 我是美国人。）\n2. 你家在哪儿？（Sample Answer: 我家在纽约。）\n3. 你是哪里人？ （Samp.e Answer: 我是北京人。）\n4. 你（can replace with family mambers）多大？ （Sample Answer: 我十八岁。）\n5. 你几年级？ （Sample Answer: 我大学一年级。）\n6. 你家有几口人？ （SA: 我家有四口人：爸爸、妈妈、姐姐和我。）\n7. 你有宠物吗？ （SA：没有。 / 有，我有一只猫。）\n8. 你有哥哥吗？ （SA：我有哥哥。 / 我没有哥哥，我有一个弟弟。）\n9. 你的... (choose a family member based on students’ answers) 是 … (an occupation appeared in Unit 1 and Unit 2)\n10. If students indicate they do not have a family member, stop asking questions about that same family member. Instead,you can ask them a different question related to that topic.\n11. Do not repeat the questions you have already asked.\n\n---"
+    },
+    {
+      "id": "unit3",
+      "title": "Unit 3: My Schedule",
+      "objectives": [
+        "Family members",
+        "Classroom expressions"
+      ],
+      "vocab": [
+        {
+          "hanzi": "今天",
+          "pinyin": "jīntiān",
+          "english": "today (noun)"
+        },
+        {
+          "hanzi": "明天",
+          "pinyin": "míngtiān",
+          "english": "tomorrow (noun)"
+        },
+        {
+          "hanzi": "昨天",
+          "pinyin": "zuótiān",
+          "english": "yesterday (noun)"
+        },
+        {
+          "hanzi": "星期",
+          "pinyin": "xīngqī",
+          "english": "week (noun)"
+        },
+        {
+          "hanzi": "星期一",
+          "pinyin": "xīngqī yī",
+          "english": "Monday (noun)"
+        },
+        {
+          "hanzi": "星期天",
+          "pinyin": "xīngqī tiān",
+          "english": "Sunday (noun)"
+        },
+        {
+          "hanzi": "星期日",
+          "pinyin": "xīngqī rì",
+          "english": "Sunday (formal) (noun)"
+        },
+        {
+          "hanzi": "课",
+          "pinyin": "kè",
+          "english": "class, lesson, course (noun)"
+        },
+        {
+          "hanzi": "中文课",
+          "pinyin": "Zhōngwén kè",
+          "english": "Chinese class (noun)"
+        },
+        {
+          "hanzi": "打工",
+          "pinyin": "dǎgōng",
+          "english": "to work part-time (verb)"
+        },
+        {
+          "hanzi": "社团",
+          "pinyin": "shètuán",
+          "english": "club, organization (noun)"
+        },
+        {
+          "hanzi": "活动",
+          "pinyin": "huódòng",
+          "english": "activity, event (noun)"
+        },
+        {
+          "hanzi": "见",
+          "pinyin": "jiàn",
+          "english": "to see, to meet (verb)"
+        },
+        {
+          "hanzi": "考试",
+          "pinyin": "kǎoshì",
+          "english": "exam, test (noun)"
+        },
+        {
+          "hanzi": "生日",
+          "pinyin": "shēngrì",
+          "english": "birthday (noun)"
+        },
+        {
+          "hanzi": "月",
+          "pinyin": "yuè",
+          "english": "month (noun)"
+        },
+        {
+          "hanzi": "号",
+          "pinyin": "hào",
+          "english": "day of the month (noun/measure word)"
+        },
+        {
+          "hanzi": "年",
+          "pinyin": "nián",
+          "english": "year (noun)"
+        },
+        {
+          "hanzi": "日",
+          "pinyin": "rì",
+          "english": "day of the month (formal) (noun)"
+        },
+        {
+          "hanzi": "一月",
+          "pinyin": "yī yuè",
+          "english": "January (noun)"
+        },
+        {
+          "hanzi": "二月",
+          "pinyin": "èr yuè",
+          "english": "February (noun)"
+        },
+        {
+          "hanzi": "三月",
+          "pinyin": "sān yuè",
+          "english": "March (noun)"
+        },
+        {
+          "hanzi": "四月",
+          "pinyin": "sì yuè",
+          "english": "April (noun)"
+        },
+        {
+          "hanzi": "五月",
+          "pinyin": "wǔ yuè",
+          "english": "May (noun)"
+        },
+        {
+          "hanzi": "六月",
+          "pinyin": "liù yuè",
+          "english": "June (noun)"
+        },
+        {
+          "hanzi": "七月",
+          "pinyin": "qī yuè",
+          "english": "July (noun)"
+        },
+        {
+          "hanzi": "八月",
+          "pinyin": "bā yuè",
+          "english": "August (noun)"
+        },
+        {
+          "hanzi": "九月",
+          "pinyin": "jiǔ yuè",
+          "english": "September (noun)"
+        },
+        {
+          "hanzi": "十月",
+          "pinyin": "shí yuè",
+          "english": "October (noun)"
+        },
+        {
+          "hanzi": "十一月",
+          "pinyin": "shí yī yuè",
+          "english": "November (noun)"
+        },
+        {
+          "hanzi": "十二月",
+          "pinyin": "shí èr yuè",
+          "english": "December (noun)"
+        },
+        {
+          "hanzi": "星期二",
+          "pinyin": "xīngqī èr",
+          "english": "Tuesday (noun)"
+        },
+        {
+          "hanzi": "星期三",
+          "pinyin": "xīngqī sān",
+          "english": "Wednesday (noun)"
+        },
+        {
+          "hanzi": "星期四",
+          "pinyin": "xīngqī sì",
+          "english": "Thursday (noun)"
+        },
+        {
+          "hanzi": "星期五",
+          "pinyin": "xīngqī wǔ",
+          "english": "Friday (noun)"
+        },
+        {
+          "hanzi": "星期六",
+          "pinyin": "xīngqī liù",
+          "english": "Saturday (noun)"
+        },
+        {
+          "hanzi": "现在",
+          "pinyin": "xiànzài",
+          "english": "now (adverb/noun)"
+        },
+        {
+          "hanzi": "点",
+          "pinyin": "diǎn",
+          "english": "o'clock; dot; point (noun/measure word)"
+        },
+        {
+          "hanzi": "分",
+          "pinyin": "fēn",
+          "english": "minute (noun/measure word)"
+        },
+        {
+          "hanzi": "半",
+          "pinyin": "bàn",
+          "english": "half (numeral)"
+        },
+        {
+          "hanzi": "刻",
+          "pinyin": "kè",
+          "english": "quarter (of an hour); moment (noun/measure word)"
+        },
+        {
+          "hanzi": "差",
+          "pinyin": "chà",
+          "english": "to be short of (verb)"
+        },
+        {
+          "hanzi": "早上",
+          "pinyin": "zǎoshang",
+          "english": "morning (noun)"
+        },
+        {
+          "hanzi": "上午",
+          "pinyin": "shàngwǔ",
+          "english": "morning (before noon) (noun)"
+        },
+        {
+          "hanzi": "中午",
+          "pinyin": "zhōngwǔ",
+          "english": "noon (noun)"
+        },
+        {
+          "hanzi": "下午",
+          "pinyin": "xiàwǔ",
+          "english": "afternoon (noun)"
+        },
+        {
+          "hanzi": "晚上",
+          "pinyin": "wǎnshang",
+          "english": "evening, night (noun)"
+        },
+        {
+          "hanzi": "上课",
+          "pinyin": "shàngkè",
+          "english": "to attend class, start class (verb)"
+        },
+        {
+          "hanzi": "下课",
+          "pinyin": "xiàkè",
+          "english": "to finish class (verb)"
+        },
+        {
+          "hanzi": "数学",
+          "pinyin": "shùxué",
+          "english": "mathematics (noun)"
+        },
+        {
+          "hanzi": "历史",
+          "pinyin": "lìshǐ",
+          "english": "history (noun)"
+        },
+        {
+          "hanzi": "科学",
+          "pinyin": "kēxué",
+          "english": "science (noun)"
+        },
+        {
+          "hanzi": "艺术",
+          "pinyin": "yìshù",
+          "english": "art (noun)"
+        },
+        {
+          "hanzi": "计算机",
+          "pinyin": "jìsuànjī",
+          "english": "computer (noun)"
+        },
+        {
+          "hanzi": "政治",
+          "pinyin": "zhèngzhì",
+          "english": "politics (noun)"
+        },
+        {
+          "hanzi": "第",
+          "pinyin": "dì",
+          "english": "prefix for ordinal numbers (prefix)"
+        },
+        {
+          "hanzi": "节",
+          "pinyin": "jié",
+          "english": "measure word for class periods; segment (measure word)"
+        },
+        {
+          "hanzi": "起床",
+          "pinyin": "qǐchuáng",
+          "english": "to get up (verb)"
+        },
+        {
+          "hanzi": "睡觉",
+          "pinyin": "shuìjiào",
+          "english": "to sleep (verb)"
+        },
+        {
+          "hanzi": "上学",
+          "pinyin": "shàngxué",
+          "english": "to go to school (verb)"
+        },
+        {
+          "hanzi": "放学",
+          "pinyin": "fàngxué",
+          "english": "to finish school, school ends (verb)"
+        },
+        {
+          "hanzi": "做",
+          "pinyin": "zuò",
+          "english": "to do, to make (verb)"
+        },
+        {
+          "hanzi": "作业",
+          "pinyin": "zuòyè",
+          "english": "homework, assignment (noun)"
+        },
+        {
+          "hanzi": "做作业",
+          "pinyin": "zuò zuòyè",
+          "english": "to do homework (verb)"
+        },
+        {
+          "hanzi": "学习",
+          "pinyin": "xuéxí",
+          "english": "to study, to learn (verb)"
+        },
+        {
+          "hanzi": "运动",
+          "pinyin": "yùndòng",
+          "english": "sports, exercise (noun/verb)"
+        },
+        {
+          "hanzi": "上网",
+          "pinyin": "shàngwǎng",
+          "english": "to surf the internet (verb)"
+        },
+        {
+          "hanzi": "吃",
+          "pinyin": "chī",
+          "english": "to eat (verb)"
+        },
+        {
+          "hanzi": "吃饭",
+          "pinyin": "chīfàn",
+          "english": "to have a meal, eat (verb)"
+        },
+        {
+          "hanzi": "早饭",
+          "pinyin": "zǎofàn",
+          "english": "breakfast (noun)"
+        },
+        {
+          "hanzi": "午饭",
+          "pinyin": "wǔfàn",
+          "english": "lunch (noun)"
+        },
+        {
+          "hanzi": "晚饭",
+          "pinyin": "wǎnfàn",
+          "english": "dinner (noun)"
+        },
+        {
+          "hanzi": "什么时候",
+          "pinyin": "shénme shíhou",
+          "english": "when (question word)"
+        },
+        {
+          "hanzi": "以前",
+          "pinyin": "yǐqián",
+          "english": "before, ago (noun)"
+        },
+        {
+          "hanzi": "以后",
+          "pinyin": "yǐhòu",
+          "english": "after, later (noun)"
+        },
+        {
+          "hanzi": "从...到...",
+          "pinyin": "cóng... dào...",
+          "english": "from... to... (prep)"
+        },
+        {
+          "hanzi": "宿舍",
+          "pinyin": "sùshè",
+          "english": "dormitory (noun)"
+        },
+        {
+          "hanzi": "体育馆",
+          "pinyin": "tǐyùguǎn",
+          "english": "gymnasium (noun)"
+        },
+        {
+          "hanzi": "操场",
+          "pinyin": "cāochǎng",
+          "english": "sports field, playground (noun)"
+        },
+        {
+          "hanzi": "食堂",
+          "pinyin": "shítáng",
+          "english": "cafeteria, dining hall (noun)"
+        },
+        {
+          "hanzi": "中心",
+          "pinyin": "zhōngxīn",
+          "english": "center (noun)"
+        },
+        {
+          "hanzi": "在",
+          "pinyin": "zài",
+          "english": "at, in, on (verb/prep)"
+        },
+        {
+          "hanzi": "来",
+          "pinyin": "lái",
+          "english": "to come (verb)"
+        },
+        {
+          "hanzi": "去",
+          "pinyin": "qù",
+          "english": "to go (verb)"
+        },
+        {
+          "hanzi": "到",
+          "pinyin": "dào",
+          "english": "to arrive, to (verb/prep)"
+        },
+        {
+          "hanzi": "回",
+          "pinyin": "huí",
+          "english": "to return (verb)"
+        },
+        {
+          "hanzi": "回家",
+          "pinyin": "huíjiā",
+          "english": "to go home (verb)"
+        },
+        {
+          "hanzi": "参加",
+          "pinyin": "cānjiā",
+          "english": "to participate, to attend (verb)"
+        },
+        {
+          "hanzi": "学校",
+          "pinyin": "xuéxiào",
+          "english": "school (noun)"
+        },
+        {
+          "hanzi": "图书馆",
+          "pinyin": "túshūguǎn",
+          "english": "library (noun)"
+        },
+        {
+          "hanzi": "教室",
+          "pinyin": "jiàoshì",
+          "english": "classroom (noun)"
+        },
+        {
+          "hanzi": "办公室",
+          "pinyin": "bàngōngshì",
+          "english": "office (noun)"
+        },
+        {
+          "hanzi": "楼",
+          "pinyin": "lóu",
+          "english": "building, floor (noun)"
+        },
+        {
+          "hanzi": "一楼",
+          "pinyin": "yī lóu",
+          "english": "first floor (noun)"
+        }
+      ],
+      "matching_prompt": "Emily/李爱 Matching Activity (Unit 3: My Schedule). Same workflow as Unit 1: Step 1 Character–Pinyin (10 items), Step 2 Character–English (10 items), both randomly sampled from Unit 3 vocabulary. Require completing all matches before submit; accept tolerant answer formats (e.g., ‘1b’, ‘1-B’). If accuracy <80%, encourage, give English corrective feedback with memorization strategies, and regenerate only mistaken items for up to two retries before moving forward. After Step 2, prompt for reflection and sharing as in Unit 1.",
+      "roleplay_prompt": "Unit 3 Role for Emily/李爱：\n你姓李，叫李爱。你的英文名字是Emily。你是中国人，你是北京人，你是中文老师。你很喜欢教中文，也想帮助阿拉巴马大学中文101的学生们。你的家有五口人，爸爸，妈妈，一个哥哥，一个妹妹，和你。你没有弟弟，也没有姐姐。你的爸爸和哥哥是医生，你的妈妈是老师，你的妹妹是学生。你有一只宠物，是一只狗，叫Butter。你的爸爸妈妈都65岁了，你的哥哥31岁了，你27岁了，你的妹妹20岁。你的妹妹是纽约大学的三年级的学生。她学英文。你和你的家人都很想你的妹妹。\n一个阿拉巴马大学中文101的学生想和你练习说中文。你要和这名学生约好一天来打电话练习说中文。今天是10月6号星期一，你很忙。你今天早上七点起床，起床以后吃早饭，从上午10点到下午2点你要教五节中文课，而且在下午四点一刻你要给妹妹打电话，晚上你6点半吃晚饭，吃晚饭以后，你会上网，晚上十点你会睡觉。星期二上午你有空，下午一点半你有社团活动，三点半以后也有空。星期三你11点要去打工，也要教中文。星期四上午从8点到11点你要教中文，中午12点你要和朋友在学校食堂吃午饭，下午一点半以后，你不忙，有空。星期五，你上午有空，下午从2点到4点半在学校图书馆看书。这个星期六是10月11号，是你的生日，你和家人朋友一起过生日。星期日，你上午，你十点你会去运动，下午你休息。\n\nOpening Addition: Since this is a phone call setting, add ringing sound and Greet in Chinese: ‘你好！’ Then ask in English: ‘Are you ready? If you are, would you like to start the role play, using Chinese to greet me and ask today's date and day.’\n\nWhy you are here: Students goal is to find a time when Emily is free to practice Chinese with them. If students ask to meet during your free time this week (星期二上午、星期二下午三点半以后、星期四下午一点半以后、星期五上午, etc)， agree to it. Students with Question students will ask Emily/ 李爱：\n\n1. What is the date and today?\n2. Will you be free on Monday?\n3. When do you get up on Monday?\n4. What will you do after you get up?\n5. How many Chinese classes will you teach today? What times?\n6. What will you do in the afternoon today?\n7. When will you have dinner today?\n8. What will you do after dinner?\n9. When will you go to sleep tonight?\n10. When will you be free this week to practice Chinese?\n11. When will you do part time work this week?\n12. Do you have Chinese classes on this Tuesday, Wednesday, and Thursday?\n13. When will you have lunch this Thursday? Where?\n14. When and where will you go to read books this Friday?\n15. What will you do on Saturday? Why?\n16. What will you do on Sunday?\n\n\n\nEncourage students to ask you questions, and ask questions about their weekly routine, birthday, weekly activities, dates and day, when and where will they eat lunch/dinner on a certain day, what time do they get up on …, what classes do they have on… etc. Please focus on helping them practice vocabulary from Unit 3 and the following grammar points in Chinese:\n1. Asking and saying year, month, date, days of the week (sample: 年、几月几号、星期几)\n2. Tells hours and minutes (sample: 现在几点、八点一刻、三点半)\n3. Indicate time of day (sample: 早上（5-8am）、上午(5am – 12pm)、中午(11am – 1pm)、下午(12-6pm)、晚上(6pm – 12am))\n4. Expressing “before” and “after” with 以前 and 以后 （ie: “你今天起床以后做什么？”, “ 上中文课以前”, …）\n5. 从… 到…\n6. Asking “when” using 什么时候 （ie: “你什么时候上中文课？”...）\n7. Asking what do using 做什么？ （ie: “你上学以前做什么？”, ）\n8. Indicate location with 在 （ie: “你今天在哪儿吃午饭？”， “你明天在哪儿做作业？”）\n\n---"
+    }
+  ]
+}

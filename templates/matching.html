@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Matching Activity</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <!-- Inline favicon to avoid 404 /favicon.ico requests -->
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAE0lEQVR4nGP4z8DwnwEIgAEQAAfWAg1S2kq4AAAAAElFTkSuQmCC" />
+  <!-- DOCX lib for saving results as .docx -->
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+  <style>
+    /* Print optimizations */
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; }
+      .container, .bg-white { box-shadow: none !important; }
+      .container { max-width: 100% !important; padding: 0.5in !important; }
+      .page-break { page-break-before: always; }
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto px-4 py-10 max-w-4xl">
+    <div class="bg-white rounded-lg shadow p-6">
+      <h1 class="text-2xl font-semibold mb-2 text-center">Character Matching</h1>
+      <p class="text-sm text-gray-600 mb-2 text-center">Stage: <span id="stage-label">1 — Character → English</span></p>
+      {% if unit %}
+        <p class="text-sm text-gray-600 mb-1">Unit: <strong>{{ unit.title }}</strong></p>
+      {% endif %}
+      <div class="mb-3 flex items-center gap-2">
+        <label for="student-name" class="text-sm text-gray-700">Student name:</label>
+        <input id="student-name" type="text" placeholder="Enter your name" class="border rounded px-2 py-1 text-sm flex-1 max-w-xs" />
+      </div>
+      <p id="instructions" class="text-gray-700 mb-3">
+        Match each character on the left with its correct <strong><span id="instr-target">English</span></strong> on the right. Select a character, then select its match.
+        You must complete all pairs before clicking "Check Answers" (unanswered items won’t be graded).
+        The activity ends when you complete both stages <strong>80% or higher</strong>. Then, you can download your badge as well as your learning summary and feedback.
+      </p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h3 class="font-medium mb-2 text-center">Characters</h3>
+          <ul id="left" class="space-y-2"></ul>
+        </div>
+
+  <!-- Alert Modal -->
+  <div id="alert-modal" class="fixed inset-0 hidden items-center justify-center z-50">
+    <div class="absolute inset-0 bg-black bg-opacity-40"></div>
+    <div class="relative bg-white rounded-lg shadow-xl max-w-md w-11/12 p-5">
+      <h3 class="text-lg font-semibold mb-2">Reminder</h3>
+      <p id="alert-message" class="text-sm text-gray-700 mb-4">Please complete all matches before checking.</p>
+      <div class="flex justify-end">
+        <button id="alert-ok" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">OK</button>
+      </div>
+    </div>
+  </div>
+        <div>
+          <h3 class="font-medium mb-2 text-center"><span id="right-title">English</span></h3>
+          <ul id="right" class="space-y-2"></ul>
+        </div>
+      </div>
+      <div class="mt-4">
+        <h4 class="font-medium">Selected Pairs</h4>
+        <ul id="pairs" class="mt-2 space-y-1 text-sm text-gray-700"></ul>
+      </div>
+      <div class="mt-4 flex gap-2 no-print">
+        <button id="btn-check" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Check Answers</button>
+        <button id="btn-clear" class="bg-red-50 text-red-700 px-4 py-2 rounded hover:bg-red-100 border border-red-200">Clear Selections</button>
+        <button id="btn-next" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 hidden">Next Round</button>
+      </div>
+      <div id="feedback" class="mt-3 text-sm"></div>
+      <!-- Post-feedback actions (moved below feedback per request) -->
+      <div id="post-feedback-actions" class="mt-4"></div>
+      <div class="mt-6"><a href="/select?unit={{ unit_id }}" class="text-blue-600 hover:underline">← Back to activity choice</a></div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirm-modal" class="fixed inset-0 hidden items-center justify-center z-50">
+    <div class="absolute inset-0 bg-black bg-opacity-40"></div>
+    <div class="relative bg-white rounded-lg shadow-xl max-w-md w-11/12 p-5">
+      <h3 class="text-lg font-semibold mb-2">Confirm Stage 2</h3>
+      <p id="confirm-message" class="text-sm text-gray-700 mb-4">You're ready to move to Stage 2 (Character → Pinyin). Continue?</p>
+      <div class="flex justify-end gap-2">
+        <button id="confirm-cancel" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancel</button>
+        <button id="confirm-ok" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Yes, continue</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = { unitId: '{{ unit_id }}', size: 10, missed: [], left: [], right: [], pairs: [], pendingLeft: null, stage: 1, retries: 0, nextRoundOnlyMissed: false, reports: { 1: null, 2: null }, reportsByStage: { 1: [], 2: [] }, allReports: [], startedAt: null, completedMs: null };
+
+    async function startRound() {
+      const useOnlyMissed = !!state.nextRoundOnlyMissed && (state.missed?.length > 0);
+      const payload = { unitId: state.unitId, size: useOnlyMissed ? state.missed.length : state.size, missed: state.missed };
+      if (useOnlyMissed) payload.onlyMissed = true;
+      if (!state.startedAt) state.startedAt = Date.now();
+      const res = await fetch('/activity/matching/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      renderRound(data);
+      // Reset the flag after the round is prepared
+      state.nextRoundOnlyMissed = false;
+    }
+
+    // Insert student name text into the badge SVG above the landmark label
+    function personalizeBadgeSvg(svgString, studentName){
+      try{
+        const name = (studentName || '').trim();
+        if (!name) return svgString;
+        const insertAt = svgString.lastIndexOf('</svg>');
+        if (insertAt === -1) return svgString;
+        // Place student name at y=340, centered
+        const nameText = `  <text x='200' y='340' text-anchor='middle' font-family='sans-serif' font-size='14' fill='rgba(0,0,0,0.7)'>${name}</text>\n`;
+        return svgString.slice(0, insertAt) + nameText + svgString.slice(insertAt);
+      } catch { return svgString; }
+    }
+    function renderRound(data) {
+      state.left = data.left; state.right = data.right; state.pairs = []; state.pendingLeft = null;
+      document.getElementById('pairs').innerHTML = '';
+      document.getElementById('feedback').innerHTML = '';
+      document.getElementById('btn-next').classList.add('hidden');
+      const actions = document.getElementById('post-feedback-actions');
+      if (actions) actions.innerHTML = '';
+      const L = document.getElementById('left'); const R = document.getElementById('right');
+      L.innerHTML = ''; R.innerHTML = '';
+      document.getElementById('stage-label').textContent = state.stage === 1 ? '1 — Character → English' : '2 — Character → Pinyin';
+      const rt = document.getElementById('right-title'); if (rt) rt.textContent = state.stage === 1 ? 'English' : 'Pinyin';
+      const it = document.getElementById('instr-target'); if (it) it.textContent = state.stage === 1 ? 'English' : 'Pinyin';
+      // Render left items with stable data attributes
+      state.left.forEach(item => {
+        const li = document.createElement('li');
+        li.className='border rounded p-2 cursor-pointer hover:bg-gray-50 text-center';
+        li.textContent = item.hanzi;
+        li.dataset.leftId = item.id;
+        li.onclick = () => selectLeft(item.id);
+        L.appendChild(li);
+      });
+      // Render right items with stable data attributes and audio button
+      state.right.forEach(item => {
+        const li = document.createElement('li');
+        li.className='border rounded p-2 cursor-pointer hover:bg-gray-50 flex items-center justify-between gap-2';
+        li.dataset.rightId = item.id;
+        li.dataset.hanzi = item.hanzi;
+
+        const textWrap = document.createElement('div');
+        textWrap.className = 'font-medium text-center flex-1';
+        if (state.stage === 1) {
+          textWrap.textContent = item.english;
+          li.dataset.value = item.english;
+        } else {
+          textWrap.textContent = item.pinyin;
+          li.dataset.value = item.pinyin;
+        }
+
+        const playBtn = document.createElement('button');
+        playBtn.className = 'text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded';
+        playBtn.textContent = '▶️';
+        playBtn.title = 'Play audio';
+        playBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const hz = li.dataset.hanzi || '';
+          if (hz) { console.log('Play item clicked:', hz); playTTS(hz); }
+        });
+
+        li.appendChild(textWrap);
+        li.appendChild(playBtn);
+        li.onclick = () => selectRight(item.id);
+        R.appendChild(li);
+      });
+    }
+
+    // Helpers
+    const getLeftEl = (id) => document.querySelector(`#left li[data-left-id="${id}"]`);
+    const getRightEl = (id) => document.querySelector(`#right li[data-right-id="${id}"]`);
+    const isLeftPaired = (leftId) => !!state.pairs.find(p => p.leftId === leftId);
+    const isRightPaired = (rightId) => !!state.pairs.find(p => p.rightId === rightId);
+
+    function markPending(leftId) {
+      [...document.querySelectorAll('#left li')].forEach(li=>li.classList.remove('ring','ring-blue-400'));
+      const el = getLeftEl(leftId);
+      if (el) el.classList.add('ring','ring-blue-400');
+    }
+
+    function clearPending() {
+      state.pendingLeft = null;
+      [...document.querySelectorAll('#left li')].forEach(li=>li.classList.remove('ring','ring-blue-400'));
+    }
+
+    function applyPairedStyles(leftId, rightId, on) {
+      const l = getLeftEl(leftId);
+      const r = getRightEl(rightId);
+      [l, r].forEach(el => { if (!el) return; if (on) { el.classList.add('bg-blue-50','opacity-75'); el.dataset.paired = 'true'; } else { el.classList.remove('bg-blue-50','opacity-75'); delete el.dataset.paired; } });
+    }
+
+    function renderPairsList() {
+      const s = document.getElementById('pairs');
+      s.innerHTML = '';
+      state.pairs.forEach(p => {
+        const li = document.createElement('li');
+        li.className = 'flex items-center gap-2';
+        li.innerHTML = `<span>${p.leftHanzi} ↔ ${p.rightValue}</span>`;
+        const btn = document.createElement('button');
+        btn.className = 'text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded hover:bg-red-200';
+        btn.textContent = 'Remove';
+        btn.onclick = () => unpairByLeft(p.leftId);
+        li.appendChild(btn);
+        s.appendChild(li);
+      });
+    }
+
+    function clearAllSelections() {
+      // Remove paired styles for all current pairs
+      state.pairs.forEach(({ leftId, rightId }) => applyPairedStyles(leftId, rightId, false));
+      // Clear pairs and pending selection
+      state.pairs = [];
+      renderPairsList();
+      clearPending();
+    }
+
+    // Modal helpers
+    function showConfirm(message, onConfirm) {
+      const modal = document.getElementById('confirm-modal');
+      const msgEl = document.getElementById('confirm-message');
+      msgEl.textContent = message;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      const ok = document.getElementById('confirm-ok');
+      const cancel = document.getElementById('confirm-cancel');
+      const cleanup = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); ok.onclick = null; cancel.onclick = null; };
+      ok.onclick = () => { cleanup(); onConfirm && onConfirm(); };
+      cancel.onclick = () => cleanup();
+    }
+
+    function showAlert(message){
+      const modal = document.getElementById('alert-modal');
+      const msgEl = document.getElementById('alert-message');
+      msgEl.textContent = message || 'Please complete all matches before checking.';
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      const ok = document.getElementById('alert-ok');
+      const cleanup = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); ok.onclick = null; };
+      ok.onclick = () => cleanup();
+    }
+
+    function unpairByLeft(leftId) {
+      const idx = state.pairs.findIndex(p => p.leftId === leftId);
+      if (idx >= 0) {
+        const { leftId: l, rightId: r } = state.pairs[idx];
+        state.pairs.splice(idx, 1);
+        applyPairedStyles(l, r, false);
+        renderPairsList();
+      }
+    }
+
+    function unpairByRight(rightId) {
+      const idx = state.pairs.findIndex(p => p.rightId === rightId);
+      if (idx >= 0) {
+        const { leftId: l, rightId: r } = state.pairs[idx];
+        state.pairs.splice(idx, 1);
+        applyPairedStyles(l, r, false);
+        renderPairsList();
+      }
+    }
+
+    function makePair(leftId, rightId) {
+      const leftItem = state.left.find(x=>x.id===leftId);
+      const rightItem = state.right.find(x=>x.id===rightId);
+      const value = state.stage === 1 ? rightItem.english : rightItem.pinyin;
+      state.pairs.push({ leftId: leftItem.id, leftHanzi: leftItem.hanzi, rightId: rightId, rightValue: value });
+      applyPairedStyles(leftItem.id, rightId, true);
+      renderPairsList();
+    }
+
+    function selectLeft(id) {
+      // If clicking a paired left, unpair it first (unselect capability)
+      if (isLeftPaired(id)) {
+        unpairByLeft(id);
+        // Toggle pending selection: if it was pending, clear; else set pending to this left for immediate re-pairing if desired
+        if (state.pendingLeft === id) { clearPending(); } else { state.pendingLeft = id; markPending(id); }
+        return;
+      }
+      // Toggle pending highlight
+      if (state.pendingLeft === id) { clearPending(); }
+      else { state.pendingLeft = id; markPending(id); }
+    }
+
+    function selectRight(id) {
+      // If right is already paired, unpair it first (unselect capability)
+      if (isRightPaired(id)) {
+        unpairByRight(id);
+        // After freeing right, if a left is pending, pair them now
+        if (state.pendingLeft) { makePair(state.pendingLeft, id); clearPending(); }
+        return;
+      }
+      // If we have a pending left, create a new pair
+      if (!state.pendingLeft) return;
+      makePair(state.pendingLeft, id);
+      clearPending();
+    }
+
+    document.getElementById('btn-check').addEventListener('click', async ()=>{
+      // Guard: require all matches to be completed before checking
+      const total = (state.left?.length || 0);
+      if ((state.pairs?.length || 0) < total) {
+        showAlert('Please complete all matches before checking.');
+        return;
+      }
+      const res=await fetch('/activity/matching/check',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ unitId: state.unitId, pairs: state.pairs, mode: (state.stage===1?'english':'pinyin') })});
+      const data=await res.json(); state.missed=data.missed||[];
+      // Snapshot report for this attempt
+      const attemptNo = (state.reportsByStage[state.stage]?.length || 0) + 1;
+      const report = {
+        unitId: state.unitId,
+        stage: state.stage,
+        attempt: attemptNo,
+        timestamp: new Date().toISOString(),
+        feedback: data.feedback,
+        accuracy: data.accuracy,
+        mode: data.mode,
+        correct: data.correct,
+        incorrect: data.incorrect,
+      };
+      state.reports[state.stage] = report;
+      state.reportsByStage[state.stage].push(report);
+      state.allReports.push(report);
+      // Render feedback
+      const fb=document.getElementById('feedback');
+      const overallMsg = data.aiFeedback || data.feedback || '';
+      const accStr = typeof data.accuracy === 'number' ? `Accuracy: ${data.accuracy}% — ` : '';
+      fb.innerHTML = `<div class=\"font-medium\">${accStr}${overallMsg} (Stage ${state.stage})</div>`;
+      if (data.incorrect?.length){
+        // Summary list (quick glance)
+        const ul=document.createElement('ul'); ul.className='mt-2 text-sm text-red-700 list-disc list-inside';
+        data.incorrect.forEach(it=>{ const li=document.createElement('li'); const exp = (state.stage===1? it.expectedEnglish : it.expectedPinyin); li.textContent=`${it.leftHanzi} → ${it.rightValue || '—'} (correct: ${exp || '—'})`; ul.appendChild(li); });
+        fb.appendChild(ul);
+        // Detailed remediation
+        const detail=document.createElement('div');
+        detail.className='mt-3 text-sm bg-yellow-50 border border-yellow-200 rounded p-3';
+        const hdr=document.createElement('div'); hdr.className='font-medium mb-2'; hdr.textContent='Tips to learn from mistakes:'; detail.appendChild(hdr);
+        data.incorrect.forEach(it=>{
+          const block=document.createElement('div'); block.className='mb-3';
+          const title=document.createElement('div'); title.className='font-semibold'; title.textContent=`${it.leftHanzi} (${it.pinyinDisplay || it.pinyin || ''}) — ${it.meaning || ''}`; block.appendChild(title);
+          const chosen=document.createElement('div'); chosen.innerHTML=`<span class='text-gray-700'>Your answer:</span> <span class='text-gray-900'>${it.rightValue || '—'}</span>`; block.appendChild(chosen);
+          const expected=document.createElement('div'); const exp = (state.stage===1? it.expectedEnglish : it.expectedPinyin) || '—'; expected.innerHTML=`<span class='text-gray-700'>Expected:</span> <span class='text-gray-900'>${exp}</span>`; block.appendChild(expected);
+          if (it.radicals && it.radicals.length){ const r=document.createElement('div'); r.innerHTML=`<span class='text-gray-700'>Radicals/components:</span> ${it.radicals.join(', ')}`; block.appendChild(r); }
+          if (it.radicalsByChar && it.radicalsByChar.length){
+            const mapHdr=document.createElement('div'); mapHdr.className='mt-1 text-gray-700'; mapHdr.textContent='Radicals by character:'; block.appendChild(mapHdr);
+            const list=document.createElement('ul'); list.className='list-disc list-inside text-gray-800';
+            it.radicalsByChar.forEach(rc => {
+              const li=document.createElement('li'); li.textContent=`${rc.char}: ${rc.radicals.join(', ')}`; list.appendChild(li);
+            });
+            block.appendChild(list);
+          }
+          // Include sample sentence if provided (for Stage 1 and Stage 2)
+          if (it.sample){
+            const sample=document.createElement('div'); sample.className='mt-2 bg-white rounded border border-yellow-200 p-2';
+            const sh=document.createElement('div'); sh.className='font-medium flex items-center gap-2';
+            const shText=document.createElement('span'); shText.textContent='Sample sentence:'; sh.appendChild(shText);
+            const playSample=document.createElement('button');
+            playSample.className='text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded';
+            playSample.textContent='▶️';
+            playSample.title='Play sample';
+            playSample.addEventListener('click', (e)=>{ e.stopPropagation(); if (it.sample?.chinese) { console.log('Play sample clicked:', it.sample.chinese); playTTS(it.sample.chinese); } });
+            sh.appendChild(playSample);
+            sample.appendChild(sh);
+            const sc=document.createElement('div'); sc.className='mt-1'; sc.textContent=it.sample.chinese || ''; sample.appendChild(sc);
+            const sp=document.createElement('div'); sp.className='text-gray-700'; sp.textContent=it.sample.pinyin || ''; sample.appendChild(sp);
+            const se=document.createElement('div'); se.className='text-gray-700'; se.textContent=it.sample.english || ''; sample.appendChild(se);
+            block.appendChild(sample);
+          }
+          if (it.explanation){ const ex=document.createElement('div'); ex.className='text-gray-800'; ex.textContent=it.explanation; block.appendChild(ex); }
+          if (Array.isArray(it.memoTips) && it.memoTips.length){
+            const tipsHdr=document.createElement('div'); tipsHdr.className='mt-2 font-medium'; tipsHdr.textContent='Memorization tips:'; block.appendChild(tipsHdr);
+            const tUL=document.createElement('ul'); tUL.className='list-disc list-inside text-gray-800';
+            it.memoTips.forEach(t=>{ const li=document.createElement('li'); li.textContent=t; tUL.appendChild(li); });
+            block.appendChild(tUL);
+          }
+          if (Array.isArray(it.associationTips) && it.associationTips.length){
+            const assocHdr=document.createElement('div'); assocHdr.className='mt-2 font-medium'; assocHdr.textContent='Shared-character associations:'; block.appendChild(assocHdr);
+            const aUL=document.createElement('ul'); aUL.className='list-disc list-inside text-gray-800';
+            it.associationTips.forEach(t=>{ const li=document.createElement('li'); li.textContent=t; aUL.appendChild(li); });
+            block.appendChild(aUL);
+          }
+          detail.appendChild(block);
+        });
+        fb.appendChild(detail);
+      }
+
+      // Progression logic
+      // >= 80% to advance, but if exactly 80% on Stage 1 and there are mistakes, require review acknowledgment first
+      if ((data.accuracy||0) >= 80) {
+        state.retries = 0; state.missed = []; // reset misses
+        if (state.stage === 1) {
+          const mustReview = (data.accuracy === 80) && Array.isArray(data.incorrect) && data.incorrect.length > 0;
+          if (mustReview) {
+            const gate = document.createElement('div'); gate.className='mt-3 p-3 border border-yellow-300 rounded bg-yellow-50';
+            const gTitle = document.createElement('div'); gTitle.className='font-medium'; gTitle.textContent = 'Please review your feedback before continuing to Stage 2.'; gate.appendChild(gTitle);
+            const gRow = document.createElement('label'); gRow.className='mt-2 flex items-center gap-2';
+            const gChk = document.createElement('input'); gChk.type='checkbox'; gChk.id='ack-review'; gRow.appendChild(gChk);
+            const gLbl = document.createElement('span'); gLbl.textContent='I have reviewed the feedback above.'; gRow.appendChild(gLbl);
+            gate.appendChild(gRow);
+            const gBtn = document.createElement('button'); gBtn.className='mt-2 px-3 py-1 rounded bg-gray-300 text-gray-600 cursor-not-allowed'; gBtn.textContent='Continue to Stage 2'; gBtn.disabled = true; gate.appendChild(gBtn);
+            gChk.addEventListener('change', ()=>{
+              if (gChk.checked) { gBtn.disabled = false; gBtn.className='mt-2 px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700'; }
+              else { gBtn.disabled = true; gBtn.className='mt-2 px-3 py-1 rounded bg-gray-300 text-gray-600 cursor-not-allowed'; }
+            });
+            gBtn.addEventListener('click', ()=>{
+              if (gBtn.disabled) return;
+              state.stage = 2;
+              const note = document.createElement('div'); note.className='mt-2'; note.textContent='Moving to Stage 2 (Character → Pinyin).'; fb.appendChild(note);
+              startRound();
+            });
+            fb.appendChild(gate);
+          } else {
+            showConfirm(`Great job! Accuracy: ${data.accuracy}%. You're ready to move to Stage 2 (Character → Pinyin). Do you want to continue?`, () => {
+              state.stage = 2;
+              const note = document.createElement('div'); note.className='mt-2'; note.textContent='Moving to Stage 2 (Character → Pinyin).';
+              fb.appendChild(note);
+              startRound();
+            });
+          }
+        } else {
+          const actions = document.getElementById('post-feedback-actions');
+          const done1 = document.createElement('div'); done1.className='mt-2'; done1.textContent='Excellent! You have completed both stages.'; fb.appendChild(done1);
+          const done2 = document.createElement('div'); done2.className='mt-1 text-green-700'; done2.textContent='Wonderful effort today — come back soon to review a fresh set and keep building your memory! 🌟'; fb.appendChild(done2);
+          // Record completion time
+          if (state.startedAt && state.completedMs == null) { state.completedMs = Date.now() - state.startedAt; }
+          if (state.completedMs != null) {
+            const mins = Math.floor(state.completedMs/60000), secs = Math.floor((state.completedMs%60000)/1000);
+            const t = document.createElement('div'); t.className='mt-1 text-gray-700'; t.textContent = `Time to complete: ${mins}m ${secs}s`; fb.appendChild(t);
+          }
+          // Render a full attempts summary (print-friendly) (below feedback)
+          const summary = document.createElement('div');
+          summary.id = 'all-results-summary';
+          summary.className = 'mt-4 text-sm';
+          const sumTitle = document.createElement('h3'); sumTitle.className='font-semibold text-lg mb-2'; sumTitle.textContent='All Attempts Summary'; summary.appendChild(sumTitle);
+          [1,2].forEach(st => {
+            const list = state.reportsByStage[st] || [];
+            if (!list.length) return;
+            const sec = document.createElement('div'); sec.className = 'mb-3' + (st===2 ? ' page-break' : '');
+            const sh = document.createElement('div'); sh.className='font-medium'; sh.textContent = `Stage ${st} (${st===1?'Character → English':'Character → Pinyin'})`; sec.appendChild(sh);
+            list.forEach(r => {
+              const box = document.createElement('div'); box.className='mt-1 border border-gray-200 rounded p-2';
+              const head = document.createElement('div'); head.className='font-medium'; head.textContent = `Attempt ${r.attempt}: Accuracy ${r.accuracy}%`; box.appendChild(head);
+              const f = document.createElement('div'); f.textContent = r.feedback; box.appendChild(f);
+              if (Array.isArray(r.incorrect) && r.incorrect.length) {
+                const ul=document.createElement('ul'); ul.className='list-disc list-inside mt-1';
+                r.incorrect.forEach(it=>{
+                  const li=document.createElement('li');
+                  const exp = r.mode==='english' ? it.expectedEnglish : it.expectedPinyin;
+                  li.innerHTML = `<div><strong>${it.leftHanzi}</strong> (${it.pinyinDisplay || it.pinyin || ''}) — ${it.meaning || ''}</div>`+
+                                 `<div>Chosen: ${it.rightValue || '—'} | Expected: ${exp || '—'}</div>`;
+                  if (it.radicalsByChar && it.radicalsByChar.length){
+                    const rad = document.createElement('div'); rad.className='ml-4';
+                    const rtitle = document.createElement('div'); rtitle.textContent = 'Radicals by character:'; rad.appendChild(rtitle);
+                    const rlist = document.createElement('ul'); rlist.className='list-disc list-inside';
+                    it.radicalsByChar.forEach(rc => {
+                      const rli=document.createElement('li'); rli.textContent = `${rc.char}: ${rc.radicals.join(', ')}`; rlist.appendChild(rli);
+                    });
+                    rad.appendChild(rlist);
+                    li.appendChild(rad);
+                  }
+                  if (it.sample){
+                    const samp = document.createElement('div'); samp.className='ml-4';
+                    const stitle = document.createElement('div'); stitle.className='flex items-center gap-2';
+                    const stSpan = document.createElement('span'); stSpan.textContent = 'Sample:'; stitle.appendChild(stSpan);
+                    const playBtn = document.createElement('button');
+                    playBtn.className = 'text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded';
+                    playBtn.textContent = '▶️';
+                    playBtn.title = 'Play sample';
+                    playBtn.addEventListener('click', (e)=>{ e.stopPropagation(); if (it.sample?.chinese) { console.log('Play sample clicked (summary):', it.sample.chinese); playTTS(it.sample.chinese); } });
+                    stitle.appendChild(playBtn);
+                    samp.appendChild(stitle);
+                    const scn = document.createElement('div'); scn.textContent = `CN: ${it.sample.chinese || ''}`; samp.appendChild(scn);
+                    const spy = document.createElement('div'); spy.textContent = `PY: ${it.sample.pinyin || ''}`; samp.appendChild(spy);
+                    const sen = document.createElement('div'); sen.textContent = `EN: ${it.sample.english || ''}`; samp.appendChild(sen);
+                    li.appendChild(samp);
+                  }
+                  if (Array.isArray(it.memoTips) && it.memoTips.length){
+                    const tips=document.createElement('div'); tips.className='ml-4';
+                    const th=document.createElement('div'); th.textContent='Memorization tips:'; tips.appendChild(th);
+                    const tul=document.createElement('ul'); tul.className='list-disc list-inside';
+                    it.memoTips.forEach(t=>{ const tli=document.createElement('li'); tli.textContent=t; tul.appendChild(tli); });
+                    tips.appendChild(tul);
+                    li.appendChild(tips);
+                  }
+                  if (Array.isArray(it.associationTips) && it.associationTips.length){
+                    const assoc=document.createElement('div'); assoc.className='ml-4';
+                    const ah=document.createElement('div'); ah.textContent='Shared-character associations:'; assoc.appendChild(ah);
+                    const aul=document.createElement('ul'); aul.className='list-disc list-inside';
+                    it.associationTips.forEach(t=>{ const ali=document.createElement('li'); ali.textContent=t; aul.appendChild(ali); });
+                    assoc.appendChild(aul);
+                    li.appendChild(assoc);
+                  }
+                  ul.appendChild(li);
+                });
+                box.appendChild(ul);
+              }
+              sec.appendChild(box);
+            });
+            summary.appendChild(sec);
+          });
+          actions.appendChild(summary);
+          // After summaries, add actions (Download Learning Summary, Trophy Badge)
+          const saveWrap = document.createElement('div');
+          saveWrap.className = 'mt-3 flex gap-2 no-print';
+          const saveBtn = document.createElement('button');
+          saveBtn.id = 'btn-save-results';
+          saveBtn.className = 'bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700';
+          saveBtn.textContent = 'Download Learning Summary';
+          saveBtn.addEventListener('click', downloadResults);
+          saveWrap.appendChild(saveBtn);
+          actions.appendChild(saveWrap);
+
+          const badgeWrap = document.createElement('div');
+          badgeWrap.className = 'mt-4 p-3 border rounded bg-white';
+          const badgeTitle = document.createElement('div'); badgeTitle.className='font-semibold mb-2'; badgeTitle.textContent='Your Trophy Badge'; badgeWrap.appendChild(badgeTitle);
+          const { svg, name } = generateLandmarkBadge(data.accuracy || 0);
+          const studentName = (document.getElementById('student-name')?.value || '').trim();
+          const svgWithName = personalizeBadgeSvg(svg, studentName);
+          const svgUri = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgWithName);
+          const img = document.createElement('img'); img.src = svgUri; img.alt = name + ' badge'; img.className='w-40 h-40 object-contain'; badgeWrap.appendChild(img);
+          const cap = document.createElement('div'); cap.className='text-sm text-gray-700 mt-1'; cap.textContent = `Landmark: ${name}`; badgeWrap.appendChild(cap);
+          const btnRow = document.createElement('div'); btnRow.className='mt-2 no-print';
+          const dlBtn = document.createElement('button'); dlBtn.className='bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700'; dlBtn.textContent='Download Badge';
+          dlBtn.addEventListener('click', ()=> downloadBadgeAsPng(svgWithName, `badge_${name.replace(/\s+/g,'_').toLowerCase()}`));
+          btnRow.appendChild(dlBtn);
+          badgeWrap.appendChild(btnRow);
+          actions.appendChild(badgeWrap);
+          document.getElementById('btn-next').classList.add('hidden');
+        }
+      } else {
+        if (state.retries < 2 && state.missed.length) {
+          state.retries += 1;
+          // Next round should be personalized: only missed items
+          state.nextRoundOnlyMissed = true;
+          const retryNote = document.createElement('div'); retryNote.className='mt-2'; retryNote.textContent = `Let's retry only the missed items (attempt ${state.retries} of 2). You need 80% or higher to move on.`; fb.appendChild(retryNote);
+          document.getElementById('btn-next').classList.remove('hidden');
+        } else {
+          // After two attempts (<80%), encourage and confirm moving to Stage 2
+          showConfirm(`Nice effort! Accuracy: ${data.accuracy}%. Let's continue to Stage 2 (Character → Pinyin). We'll keep reinforcing the tricky items later. Continue?`, () => {
+            state.retries = 0; state.missed = [];
+            state.stage = 2;
+            const note = document.createElement('div'); note.className='mt-2'; note.textContent='Moving to Stage 2 (Character → Pinyin).'; fb.appendChild(note);
+            startRound();
+          });
+        }
+      }
+    });
+    document.getElementById('btn-next').addEventListener('click', startRound);
+    document.getElementById('btn-clear').addEventListener('click', clearAllSelections);
+
+    // Minimal TTS helper for matching page: speak provided Chinese text via /tts
+    function showTtsError(msg){
+      try {
+        const fb = document.getElementById('feedback');
+        if (!fb) return;
+        const note = document.createElement('div');
+        note.className = 'mt-1 text-xs text-red-700';
+        note.textContent = msg || 'Audio playback failed.';
+        fb.appendChild(note);
+        setTimeout(()=>{ if (note && note.parentNode) note.parentNode.removeChild(note); }, 4000);
+      } catch {}
+    }
+    function sanitizeChinese(text){
+      return (text||'')
+        .replace(/[^\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\u{2a700}-\u{2b73f}\u{2b740}-\u{2b81f}\u{2b820}-\u{2ceaf}\u{f900}-\u{faff}\u{2f800}-\u{2fa1f}\u3000-\u303F\uFF00-\uFFEF\s\p{P}]+/gu, '')
+        .replace(/\s+/g,' ').trim();
+    }
+    async function playTTS(text) {
+      try {
+        if (!text) return;
+        const clean = sanitizeChinese(text);
+        if (!clean) { showTtsError('Nothing to speak for this sample.'); return; }
+        const payload = { text: clean, voice: 'alloy' };
+        const res = await fetch('/tts', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'audio/mpeg' }, body: JSON.stringify(payload) });
+        console.log('TTS status', res.status);
+        if (!res.ok) { showTtsError('Could not fetch audio.'); return; }
+        const blob = await res.blob();
+        console.log('TTS blob size', blob.size);
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.play().catch(()=> showTtsError('Your browser blocked autoplay. Click the play button again.'));
+        audio.onended = () => URL.revokeObjectURL(url);
+      } catch (e) { showTtsError('Audio playback failed.'); }
+    }
+
+    // Removed Test Audio button
+
+    // Auto-start
+    startRound();
+
+    // Download combined report for all attempts as DOCX
+    async function downloadResults(){
+      try{
+        const docx = window.docx;
+        if (!docx) { throw new Error('DOCX library not loaded'); }
+        const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
+        const children = [];
+        const nameVal = (document.getElementById('student-name')?.value || '').trim();
+        const title = `Matching Results — Unit ${state.unitId}`;
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: title, bold: true })] }));
+        if (nameVal) children.push(new Paragraph({ children: [new TextRun({ text: `Student: ${nameVal}` })] }));
+        if (state.completedMs != null) {
+          const mins = Math.floor(state.completedMs/60000), secs = Math.floor((state.completedMs%60000)/1000);
+          const dur = `${mins}m ${secs}s`;
+          children.push(new Paragraph({ children: [new TextRun({ text: `Duration: ${dur}` })] }));
+        }
+        const ts = new Date().toLocaleString();
+        children.push(new Paragraph({ children: [new TextRun({ text: `Generated: ${ts}` })] }));
+        children.push(new Paragraph({ children: [new TextRun({ text: ' ' })] }));
+
+        [1,2].forEach(stageNum => {
+          const list = state.reportsByStage[stageNum] || [];
+          if (!list.length) return;
+          const stageTitle = `Stage ${stageNum} — ${stageNum===1?'Character → English':'Character → Pinyin'}`;
+          children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: stageTitle, bold: true })] }));
+          list.forEach(r => {
+            children.push(new Paragraph({ children: [new TextRun({ text: `Attempt ${r.attempt} — Mode: ${r.mode}` , bold: true })] }));
+            children.push(new Paragraph({ children: [new TextRun({ text: `Accuracy: ${r.accuracy}%` })] }));
+            if (r.feedback) children.push(new Paragraph({ children: [new TextRun({ text: r.feedback })] }));
+            children.push(new Paragraph({ children: [new TextRun({ text: ' ' })] }));
+            if (Array.isArray(r.incorrect) && r.incorrect.length){
+              children.push(new Paragraph({ children: [new TextRun({ text: 'Incorrect items:', bold: true })] }));
+              r.incorrect.forEach(it => {
+                const header = `${it.leftHanzi} (${it.pinyinDisplay || it.pinyin || ''}) — ${it.meaning || ''}`;
+                children.push(new Paragraph({ children: [new TextRun({ text: header, bold: true })] }));
+                const exp = r.mode==='english' ? it.expectedEnglish : it.expectedPinyin;
+                children.push(new Paragraph({ children: [new TextRun({ text: `Your answer: ${it.rightValue || '—'}` })] }));
+                children.push(new Paragraph({ children: [new TextRun({ text: `Expected: ${exp || '—'}` })] }));
+                if (it.radicalsByChar && it.radicalsByChar.length){
+                  children.push(new Paragraph({ children: [new TextRun({ text: 'Radicals by character:' })] }));
+                  it.radicalsByChar.forEach(rc => {
+                    children.push(new Paragraph({ children: [new TextRun({ text: `• ${rc.char}: ${rc.radicals.join(', ')}` })] }));
+                  });
+                }
+                if (it.sample){
+                  children.push(new Paragraph({ children: [new TextRun({ text: 'Sample sentence:' , bold: true })] }));
+                  if (it.sample.chinese) children.push(new Paragraph({ children: [new TextRun({ text: `CN: ${it.sample.chinese}` })] }));
+                  if (it.sample.pinyin)  children.push(new Paragraph({ children: [new TextRun({ text: `PY: ${it.sample.pinyin}` })] }));
+                  if (it.sample.english) children.push(new Paragraph({ children: [new TextRun({ text: `EN: ${it.sample.english}` })] }));
+                }
+                if (it.explanation){
+                  children.push(new Paragraph({ children: [new TextRun({ text: `Tip: ${it.explanation}` })] }));
+                }
+                children.push(new Paragraph({ children: [new TextRun({ text: ' ' })] }));
+              });
+            }
+            children.push(new Paragraph({ children: [new TextRun({ text: ' ' })] }));
+          });
+        });
+
+        const doc = new Document({ sections: [{ properties: {}, children }] });
+        const blob = await Packer.toBlob(doc);
+        const a = document.createElement('a');
+        const dateStr = new Date().toISOString().replace(/[:.]/g,'-');
+        a.href = URL.createObjectURL(blob);
+        a.download = `matching_results_${state.unitId}_${dateStr}.docx`;
+        document.body.appendChild(a); a.click(); a.remove();
+      } catch(e) {
+        const fb = document.getElementById('feedback');
+        if (fb) fb.innerHTML += `<div class='mt-2 text-red-700 text-sm'>Failed to save results as DOCX. Please try again.</div>`;
+      }
+    }
+
+    // --- Trophy Badge Helpers (50 randomized landmarks) ---
+    function pickLandmarkName(){
+      const landmarks = [
+        'Great Wall','Temple of Heaven','Forbidden City','Terracotta Army','West Lake','Huangshan','Potala Palace','Summer Palace','Leshan Giant Buddha','Jiuzhaigou',
+        'Zhangjiajie','Oriental Pearl Tower','Nanjing City Wall','Suzhou Gardens','Pingyao Ancient City','Longmen Grottoes','Mogao Caves','Mount Tai','Mount Emei','Yueyang Tower',
+        'Yellow Crane Tower','Big Wild Goose Pagoda','Small Wild Goose Pagoda','Drum Tower','Bell Tower','Canton Tower','Shanhai Pass','Tiger Leaping Gorge','Lijiang Old Town','Wuzhen Water Town',
+        'Hongcun Village','Fenghuang Ancient Town','Mount Wutai','Mount Hua','Mount Lu','Mount Song','Shaolin Temple','Yungang Grottoes','Qinghai Lake','Three Pagodas',
+        'Jokhang Temple','Nanpu Bridge','Beijing Hutongs','Xitang Water Town','Yu Garden','Humble Administrator’s Garden','Lingyin Temple','Wuhan Yangtze Bridge','Qin Shi Huang Mausoleum','Heavenly Lake'
+      ];
+      return landmarks[Math.floor(Math.random()*landmarks.length)];
+    }
+    function pickPaletteName(){
+      const palettes = ['peach','teal','violet','indigo','emerald','rose','amber','slate','cyan','lime'];
+      return palettes[Math.floor(Math.random()*palettes.length)];
+    }
+
+    async function renderAIBadge(containerEl, accuracy){
+      const name = pickLandmarkName();
+      const palette = pickPaletteName();
+      try {
+        const res = await fetch(`/badge?name=${encodeURIComponent(name)}&palette=${encodeURIComponent(palette)}`);
+        if (!res.ok) throw new Error('badge fetch failed');
+        const svg = await res.text();
+        const svgUri = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        const img = document.createElement('img'); img.src = svgUri; img.alt = name + ' badge'; img.className='w-40 h-40 object-contain'; containerEl.appendChild(img);
+        const cap = document.createElement('div'); cap.className='text-sm text-gray-700 mt-1'; cap.textContent = `Landmark: ${name}`; containerEl.appendChild(cap);
+        const btnRow = document.createElement('div'); btnRow.className='mt-2 no-print';
+        const dlBtn = document.createElement('button'); dlBtn.className='bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700'; dlBtn.textContent='Download Badge';
+        dlBtn.addEventListener('click', ()=> downloadBadgeAsPng(svg, `badge_${name.replace(/\s+/g,'_').toLowerCase()}`));
+        btnRow.appendChild(dlBtn);
+        containerEl.appendChild(btnRow);
+      } catch (e) {
+        // Fallback to local generator
+        const { svg, name: localName } = generateLandmarkBadge(accuracy || 0);
+        const svgUri = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        const img = document.createElement('img'); img.src = svgUri; img.alt = localName + ' badge'; img.className='w-40 h-40 object-contain'; containerEl.appendChild(img);
+        const cap = document.createElement('div'); cap.className='text-sm text-gray-700 mt-1'; cap.textContent = `Landmark: ${localName}`; containerEl.appendChild(cap);
+        const btnRow = document.createElement('div'); btnRow.className='mt-2 no-print';
+        const dlBtn = document.createElement('button'); dlBtn.className='bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700'; dlBtn.textContent='Download Badge';
+        dlBtn.addEventListener('click', ()=> downloadBadgeAsPng(svg, `badge_${localName.replace(/\s+/g,'_').toLowerCase()}`));
+        btnRow.appendChild(dlBtn);
+        containerEl.appendChild(btnRow);
+      }
+    }
+    function getUnitBadgePalette(){
+      const uid = (state.unitId || '').toLowerCase();
+      switch(uid){
+        case 'unit1': // pink (pastel)
+          return ['#F9A8D4', '#FCE7F3', '#EC4899'];
+        case 'unit2': // azul/blue (pastel)
+          return ['#93C5FD', '#DBEAFE', '#2563EB'];
+        case 'unit3': // mint/emerald (pastel)
+          return ['#A7F3D0', '#D1FAE5', '#10B981'];
+        default:
+          return ['#CBD5E1', '#F1F5F9', '#475569']; // slate fallback (pastel)
+      }
+    }
+
+    function generateLandmarkBadge(accuracy){
+      const [primary, light, dark] = getUnitBadgePalette();
+      const landmarks = [
+        'Great Wall','Temple of Heaven','Forbidden City','Terracotta Army','West Lake','Huangshan','Potala Palace','Summer Palace','Leshan Giant Buddha','Jiuzhaigou',
+        'Zhangjiajie','Oriental Pearl Tower','Nanjing City Wall','Suzhou Gardens','Pingyao Ancient City','Longmen Grottoes','Mogao Caves','Mount Tai','Mount Emei','Yueyang Tower',
+        'Yellow Crane Tower','Big Wild Goose Pagoda','Small Wild Goose Pagoda','Drum Tower','Bell Tower','Canton Tower','Shanhai Pass','Tiger Leaping Gorge','Lijiang Old Town','Wuzhen Water Town',
+        'Hongcun Village','Fenghuang Ancient Town','Mount Wutai','Mount Hua','Mount Lu','Mount Song','Shaolin Temple','Yungang Grottoes','Qinghai Lake','Three Pagodas',
+        'Jokhang Temple','Nanpu Bridge','Beijing Hutongs','Xitang Water Town','Yu Garden','Humble Administrator’s Garden','Lingyin Temple','Wuhan Yangtze Bridge','Qin Shi Huang Mausoleum','Heavenly Lake'
+      ];
+      const idx = Math.floor(Math.random()*landmarks.length);
+      const name = landmarks[idx];
+      const artPath = mapNameToPath(name) || shapePath(idx);
+      const svg = `<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'>
+  <defs>
+    <radialGradient id='g' cx='50%' cy='40%' r='65%'><stop offset='0%' stop-color='${light}'/><stop offset='100%' stop-color='${primary}'/></radialGradient>
+  </defs>
+  <circle cx='200' cy='200' r='180' fill='url(#g)' stroke='${dark}' stroke-width='6'/>
+  <circle cx='200' cy='200' r='145' fill='rgba(255,255,255,0.15)'/>
+  <g transform='translate(200,225) scale(1)'>
+    <path d='${artPath}' fill='${dark}'/>
+  </g>
+  <text x='200' y='360' text-anchor='middle' font-family='sans-serif' font-size='18' fill='${dark}'>${name}</text>
+</svg>`;
+      return { svg, name };
+    }
+
+    // Simple icon-like paths; cycle by index to provide variety across 50 entries
+    function mapNameToPath(name){
+      switch(name){
+        case 'Great Wall': return pathGreatWall();
+        case 'Temple of Heaven': return pathTempleHeaven();
+        case 'Forbidden City': return pathForbiddenCity();
+        case 'Terracotta Army': return pathTerracottaArmy();
+        case 'Oriental Pearl Tower': return pathOrientalPearl();
+        case 'Canton Tower': return pathCantonTower();
+        case 'Yellow Crane Tower': return pathPagoda();
+        case 'Big Wild Goose Pagoda':
+        case 'Small Wild Goose Pagoda':
+        case 'Three Pagodas': return pathPagoda();
+        case 'Yueyang Tower': return pathTowerHall();
+        case 'Drum Tower': return pathTowerHall();
+        case 'Bell Tower': return pathTowerHall();
+        case 'Summer Palace':
+        case 'Potala Palace':
+        case 'Jokhang Temple': return pathPalace();
+        case 'Nanpu Bridge':
+        case 'Wuhan Yangtze Bridge':
+        case 'West Lake': return pathBridgeArch();
+        case 'Qinghai Lake':
+        case 'Heavenly Lake': return pathLakeWide();
+        case 'Huangshan':
+        case 'Mount Tai':
+        case 'Mount Emei':
+        case 'Mount Hua':
+        case 'Mount Wutai':
+        case 'Mount Lu':
+        case 'Mount Song': return pathMountainRange();
+        case 'Mogao Caves':
+        case 'Longmen Grottoes':
+        case 'Yungang Grottoes': return pathGrotto();
+        case 'Leshan Giant Buddha': return pathBuddha();
+        case 'Jiuzhaigou': return pathLakeTerraces();
+        case 'Suzhou Gardens':
+        case 'Yu Garden':
+        case 'Humble Administrator’s Garden': return pathGarden();
+        case 'Zhangjiajie': return pathZhangjiajie();
+        case 'Nanjing City Wall':
+        case 'Shanhai Pass': return pathWallGate();
+        case 'Shaolin Temple': return pathTempleGate();
+        case 'Qin Shi Huang Mausoleum': return pathMound();
+        case 'Beijing Hutongs':
+        case 'Pingyao Ancient City':
+        case 'Lijiang Old Town':
+        case 'Wuzhen Water Town':
+        case 'Xitang Water Town': return pathOldTownGate();
+        default: return '';
+      }
+    }
+
+    // Distinctive silhouettes for selected landmarks
+    function pathGreatWall(){
+      return 'M-160,40 h320 v-24 h-24 v-16 h-24 v16 h-32 v-28 h-32 v28 h-36 v-18 h-28 v18 h-36 v-12 h-24 v18 z';
+    }
+    function pathTempleHeaven(){
+      return 'M-110,40 h220 v-12 h-220 z M-90,28 h180 v-14 h-180 z M-70,14 h140 v-16 h-140 z M-30,-2 h60 v-18 h-60 z';
+    }
+    function pathForbiddenCity(){
+      return 'M-140,40 h280 v-16 h-280 z M-110,24 h220 v-16 h-220 z M-80,8 h160 v-14 h-160 z';
+    }
+    function pathOrientalPearl(){
+      return 'M-6,40 h12 v-26 h-12 z M-16,14 h32 v-12 h-32 z M-10,0 h20 v-10 h-20 z M-4,-10 h8 v-8 h-8 z';
+    }
+    function pathCantonTower(){
+      return 'M-10,40 h20 v-26 h-20 z M-16,20 h32 v-8 h-32 z M-12,8 h24 v-8 h-24 z';
+    }
+    function pathPagoda(){
+      return 'M-70,40 h140 v-10 h-140 z M-55,30 h110 v-12 h-110 z M-40,18 h80 v-14 h-80 z M-25,6 h50 v-12 h-50 z';
+    }
+    function pathPalace(){
+      return 'M-120,40 h240 v-12 h-240 z M-90,28 h180 v-12 h-180 z M-60,16 h120 v-12 h-120 z';
+    }
+    function pathBridgeArch(){
+      return 'M-160,28 q80,-28 160,0 q80,28 160,0 v12 h-320 z';
+    }
+    function pathMountainRange(){
+      return 'M-160,40 L-120,-10 L-80,40 L-40,-20 L0,40 L40,-8 L80,40 L120,-15 L160,40 Z';
+    }
+    function pathGrotto(){
+      return 'M-160,40 h320 v-34 q-160,-30 -320,0 z';
+    }
+    function pathBuddha(){
+      return 'M-24,40 h48 v-18 h14 v-16 h-76 v16 h14 z';
+    }
+    function pathGarden(){
+      return 'M-120,40 h240 v-8 h-240 z M-90,32 h180 v-10 h-180 z M-60,22 h120 v-10 h-120 z';
+    }
+    function pathWallGate(){
+      return 'M-160,40 h320 v-18 h-64 v-16 h-64 v16 h-64 v-16 h-64 v34 z';
+    }
+    function pathOldTownGate(){
+      return 'M-120,40 h240 v-12 h-60 v-14 h-120 v14 h-60 z';
+    }
+    function pathTowerHall(){
+      // Rectangular hall/tower with simple roof
+      return 'M-80,40 h160 v-16 h-160 z M-60,24 h120 v-12 h-120 z';
+    }
+    function pathTempleGate(){
+      // Temple gate with upturned eaves
+      return 'M-120,40 h240 v-14 h-70 v-16 h-100 v16 h-70 z M-80,10 h160 v-12 h-160 z';
+    }
+    function pathTerracottaArmy(){
+      // Three stylized figures in a row to suggest the warriors
+      return 'M-90,40 h40 v-16 h-8 v-12 h-24 v12 h-8 z M-20,40 h40 v-16 h-8 v-12 h-24 v12 h-8 z M50,40 h40 v-16 h-8 v-12 h-24 v12 h-8 z';
+    }
+    function pathZhangjiajie(){
+      // Tall sandstone pillars/spires
+      return 'M-110,40 h20 v-35 h-20 z M-70,40 h24 v-50 h-24 z M-30,40 h18 v-28 h-18 z M10,40 h22 v-46 h-22 z M50,40 h20 v-38 h-20 z';
+    }
+    function pathLakeWide(){
+      // Wide still lake
+      return 'M-160,22 q50,20 100,0 q50,-20 100,0 q50,20 100,0 v18 h-300 z';
+    }
+    function pathLakeTerraces(){
+      // Cascading terrace-like pools
+      return 'M-150,10 q40,14 80,0 q40,-14 80,0 q40,14 80,0 v10 h-240 z M-140,30 q40,14 80,0 q40,-14 80,0 q40,14 80,0 v10 h-240 z';
+    }
+    function pathMound(){
+      // Burial mound outline
+      return 'M-140,40 h280 v-16 q-140,-36 -280,0 z';
+    }
+    function shapePath(i){
+      const t = i % 12;
+      switch(t){
+        case 0: return 'M-140,40 h280 v-30 h-40 v-20 h-40 v20 h-40 v-40 h-40 v40 h-40 v-20 h-40 v30 z'; // wall
+        case 1: return 'M-100,40 h200 v-15 h-200 z M-80,25 h160 v-15 h-160 z M-60,10 h120 v-20 h-120 z M-20,-10 h40 v-20 h-40 z'; // temple tiers
+        case 2: return 'M-110,40 h220 v-20 h-220 z M-90,20 h180 v-20 h-180 z M-60,0 h120 v-20 h-120 z'; // palace
+        case 3: return 'M-80,40 h160 v-20 h-20 v-20 h-120 v20 h-20 z M-30,0 h60 v-20 h-60 z'; // warriors
+        case 4: return 'M-160,20 q40,20 80,0 q40,-20 80,0 q40,20 80,0 v20 h-240 z'; // lake/bridge
+        case 5: return 'M-140,40 L-80,-20 L-20,40 L40,-10 L100,40 Z'; // mountains 1
+        case 6: return 'M-30,40 h60 v-20 h-60 z M-20,20 h40 v-20 h-40 z M-10,0 h20 v-20 h-20 z'; // tower
+        case 7: return 'M-140,40 h280 v-20 h-80 v-20 h-80 v20 h-80 z'; // wall gate
+        case 8: return 'M-120,40 h240 v-10 h-240 z M-80,30 h160 v-10 h-160 z'; // gardens
+        case 9: return 'M-140,40 h280 v-30 q-140,-30 -280,0 z'; // grotto/cave
+        case 10:return 'M-150,40 L-100,-10 L-50,40 L0,-20 L50,40 L100,-5 L150,40 Z'; // mountains 2
+        default:return 'M-70,40 h140 v-10 h-140 z M-50,30 h100 v-12 h-100 z M-30,18 h60 v-16 h-60 z'; // pagoda
+      }
+    }
+
+    function downloadBadgeAsPng(svgString, filename){
+      const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+      img.onload = function(){
+        const canvas = document.createElement('canvas');
+        canvas.width = 800; canvas.height = 800; // hi-res
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob)=>{
+          const dlUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = dlUrl; a.download = `${filename}.png`;
+          document.body.appendChild(a); a.click();
+          setTimeout(()=>{ URL.revokeObjectURL(dlUrl); document.body.removeChild(a); }, 0);
+        }, 'image/png');
+      };
+      img.src = url;
+    }
+
+    // Save entire screen as PDF using the browser's print dialog
+    function saveAsPdf(){
+      try { window.print(); } catch(e) {}
+    }
+  </script>
+</body>
+</html>

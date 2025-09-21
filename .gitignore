@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.python-version
+
+# Environments
+.env
+.venv/
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Caches
+.pytest_cache/
+.cache/
+cache/
+
+# Editors/IDE
+.vscode/
+.idea/
+
+# Node (not used, but safe)
+node_modules/

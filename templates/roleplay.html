@@ -6,6 +6,8 @@
   <title>Role Play</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <!-- PDF libs (use jsDelivr without SRI to avoid integrity mismatch) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/feedback-widget.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <!-- DOCX lib -->
@@ -29,7 +31,6 @@
       <div class="flex items-center gap-2 mb-2">
         <input id="text-input" type="text" class="flex-1 p-2 border rounded" placeholder="Type your line in Chinese or English..." />
         <button id="mic" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">🎤 Voice</button>
-        <button id="pause" class="bg-gray-600 text-white px-3 py-2 rounded hover:bg-gray-700" title="Pause current audio">⏸ Pause</button>
         <button id="send" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Type</button>
       </div>
       <div class="flex items-center gap-3 text-sm text-gray-600">
@@ -89,7 +90,7 @@
         el.innerText = text;
       } catch {}
     })();
-    const state = { history: [], assistantTurn: 0, helpShownFor: {}, startedAt: null, completedMs: null };
+    const state = { history: [], assistantTurn: 0, helpShownFor: {}, helpShownSinceLastResponse: false, startedAt: null, completedMs: null };
     // Gate autoplay until any user interaction happens (fix NotAllowedError)
     let hasUserInteracted = false;
     ['pointerdown','keydown','touchstart'].forEach(evt => {
@@ -100,12 +101,13 @@
       clearTimeout(inactivityTimer);
       // After assistant speaks, wait 90 seconds for the student; then show one-time help for THIS turn
       inactivityTimer = setTimeout(() => {
-        if (state.helpShownFor && state.helpShownFor[turnId]) return;
-        // Mark this turn as helped and insert an assistance line (no autoplay)
+        // Only show help if we haven't shown it since the last student response
+        if (state.helpShownSinceLastResponse) return;
+        // Mark that we've shown help and insert an assistance line (no autoplay)
         const promptLine = "你需要帮助吗？(Nǐ xūyào bāngzhù ma?) 要不要我慢一点？(Yào bùyào wǒ màn yìdiǎn?) Would you like a hint?";
         addLine('assistant', promptLine, { autoplay: false });
         state.history.push({ role:'assistant', content: promptLine });
-        state.helpShownFor[turnId] = true;
+        state.helpShownSinceLastResponse = true;
       }, 90000);
     }
 
@@ -349,6 +351,8 @@
       const input = document.getElementById('text-input');
       const message = input.value.trim(); if (!message) return; input.value='';
       addLine('user', message); state.history.push({ role:'user', content: message });
+      // Reset help flag when student responds
+      state.helpShownSinceLastResponse = false;
       const res = await fetch('/activity/roleplay/turn', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ unitId, history: state.history, message }) });
       const data = await res.json();
       if (!res.ok || data.error) { document.getElementById('error').textContent = data.error || 'Failed to continue'; return; }
@@ -553,12 +557,10 @@
         document.getElementById('status').textContent = 'DOCX saved. Reminder: save your log, complete your handout, and upload the handout, the log, and the video.';
       } catch (e) {
         document.getElementById('error').textContent = 'Failed to save DOCX';
+        console.error('Failed to save DOCX', e);
       }
     });
 
-    // Global Pause button click handler
-    document.getElementById('pause').addEventListener('click', () => pauseTTS());
-  </script>
+</script>
 </body>
 </html>
-

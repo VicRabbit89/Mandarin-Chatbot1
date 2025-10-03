@@ -8,6 +8,8 @@
   <!-- Inline favicon to avoid 404 /favicon.ico requests -->
   <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAE0lEQVR4nGP4z8DwnwEIgAEQAAfWAg1S2kq4AAAAAElFTkSuQmCC" />
   <!-- DOCX lib for saving results as .docx -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/feedback-widget.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
   <style>
     /* Print optimizations */
@@ -28,15 +30,24 @@
       {% if unit %}
         <p class="text-sm text-gray-600 mb-1">Unit: <strong>{{ unit.title }}</strong></p>
       {% endif %}
-      <div class="mb-3 flex items-center gap-2">
         <label for="student-name" class="text-sm text-gray-700">Student name:</label>
         <input id="student-name" type="text" placeholder="Enter your name" class="border rounded px-2 py-1 text-sm flex-1 max-w-xs" />
       </div>
       <p id="instructions" class="text-gray-700 mb-3">
-        Match each character on the left with its correct <strong><span id="instr-target">English</span></strong> on the right. Select a character, then select its match.
-        You must complete all pairs before clicking "Check Answers" (unanswered items won’t be graded).
+        Match each character on the left with its correct <strong><span id="instr-target">English</span></strong> on the right. <strong>Select any item from either column, then select its match</strong> - you can start from either side!
+        You must complete all pairs before clicking "Check Answers" (unanswered items won't be graded).
         The activity ends when you complete both stages <strong>80% or higher</strong>. Then, you can download your badge as well as your learning summary and feedback.
       </p>
+      <!-- Progress Indicator -->
+      <div class="mb-4 p-3 bg-gray-50 rounded-lg border">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-gray-700">Progress:</span>
+          <span id="progress-text" class="text-sm text-gray-600">0/10 matches completed</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div id="progress-bar" class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <h3 class="font-medium mb-2 text-center">Characters</h3>
@@ -60,8 +71,9 @@
         </div>
       </div>
       <div class="mt-4">
-        <h4 class="font-medium">Selected Pairs</h4>
-        <ul id="pairs" class="mt-2 space-y-1 text-sm text-gray-700"></ul>
+        <h4 class="font-medium text-lg text-green-700 mb-2">✓ Completed Matches</h4>
+        <ul id="pairs" class="mt-2 space-y-2 text-sm"></ul>
+        <p id="no-matches" class="text-gray-500 text-sm italic">No matches completed yet. Select items from both columns to create matches.</p>
       </div>
       <div class="mt-4 flex gap-2 no-print">
         <button id="btn-check" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Check Answers</button>
@@ -182,31 +194,87 @@
       if (el) el.classList.add('ring','ring-blue-400');
     }
 
+    function markPendingRight(rightId) {
+      [...document.querySelectorAll('#right li')].forEach(li=>li.classList.remove('ring','ring-blue-400'));
+      const el = getRightEl(rightId);
+      if (el) el.classList.add('ring','ring-blue-400');
+    }
+
     function clearPending() {
       state.pendingLeft = null;
+      state.pendingRight = null;
       [...document.querySelectorAll('#left li')].forEach(li=>li.classList.remove('ring','ring-blue-400'));
+      [...document.querySelectorAll('#right li')].forEach(li=>li.classList.remove('ring','ring-blue-400'));
     }
 
     function applyPairedStyles(leftId, rightId, on) {
       const l = getLeftEl(leftId);
       const r = getRightEl(rightId);
-      [l, r].forEach(el => { if (!el) return; if (on) { el.classList.add('bg-blue-50','opacity-75'); el.dataset.paired = 'true'; } else { el.classList.remove('bg-blue-50','opacity-75'); delete el.dataset.paired; } });
+      [l, r].forEach(el => { 
+        if (!el) return; 
+        if (on) { 
+          el.classList.add('bg-green-100', 'border-green-400', 'border-2', 'text-green-800'); 
+          el.classList.remove('bg-white', 'border-gray-300');
+          el.dataset.paired = 'true';
+          // Add checkmark
+          if (!el.querySelector('.checkmark')) {
+            const checkmark = document.createElement('span');
+            checkmark.className = 'checkmark text-green-600 font-bold ml-2';
+            checkmark.innerHTML = '✓';
+            el.appendChild(checkmark);
+          }
+        } else { 
+          el.classList.remove('bg-green-100', 'border-green-400', 'border-2', 'text-green-800'); 
+          el.classList.add('bg-white', 'border-gray-300');
+          delete el.dataset.paired;
+          // Remove checkmark
+          const checkmark = el.querySelector('.checkmark');
+          if (checkmark) checkmark.remove();
+        } 
+      });
     }
 
     function renderPairsList() {
       const s = document.getElementById('pairs');
+      const noMatchesMsg = document.getElementById('no-matches');
       s.innerHTML = '';
-      state.pairs.forEach(p => {
-        const li = document.createElement('li');
-        li.className = 'flex items-center gap-2';
-        li.innerHTML = `<span>${p.leftHanzi} ↔ ${p.rightValue}</span>`;
-        const btn = document.createElement('button');
-        btn.className = 'text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded hover:bg-red-200';
-        btn.textContent = 'Remove';
-        btn.onclick = () => unpairByLeft(p.leftId);
-        li.appendChild(btn);
-        s.appendChild(li);
-      });
+      
+      if (state.pairs.length === 0) {
+        noMatchesMsg.style.display = 'block';
+      } else {
+        noMatchesMsg.style.display = 'none';
+        state.pairs.forEach(p => {
+          const li = document.createElement('li');
+          li.className = 'flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded';
+          li.innerHTML = `<span class="text-green-800"><strong>${p.leftHanzi}</strong> ↔ <strong>${p.rightValue}</strong></span>`;
+          const btn = document.createElement('button');
+          btn.className = 'text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded hover:bg-red-200';
+          btn.textContent = 'Remove';
+          btn.onclick = () => unpairByLeft(p.leftId);
+          li.appendChild(btn);
+          s.appendChild(li);
+        });
+      }
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const total = state.left.length;
+      const completed = state.pairs.length;
+      const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+      
+      document.getElementById('progress-text').textContent = `${completed}/${total} matches completed`;
+      document.getElementById('progress-bar').style.width = `${percentage}%`;
+      
+      // Change color based on completion
+      const progressBar = document.getElementById('progress-bar');
+      if (percentage === 100) {
+        progressBar.className = 'bg-green-500 h-2 rounded-full transition-all duration-300';
+      } else if (percentage >= 50) {
+        progressBar.className = 'bg-blue-500 h-2 rounded-full transition-all duration-300';
+      } else {
+        progressBar.className = 'bg-gray-400 h-2 rounded-full transition-all duration-300';
+      }
     }
 
     function clearAllSelections() {
@@ -277,12 +345,20 @@
       if (isLeftPaired(id)) {
         unpairByLeft(id);
         // Toggle pending selection: if it was pending, clear; else set pending to this left for immediate re-pairing if desired
-        if (state.pendingLeft === id) { clearPending(); } else { state.pendingLeft = id; markPending(id); }
+        if (state.pendingLeft === id) { clearPending(); } else { state.pendingLeft = id; state.pendingRight = null; markPending(id); }
         return;
       }
+      
+      // If we have a pending right, create a pair
+      if (state.pendingRight) {
+        makePair(id, state.pendingRight);
+        clearPending();
+        return;
+      }
+      
       // Toggle pending highlight
       if (state.pendingLeft === id) { clearPending(); }
-      else { state.pendingLeft = id; markPending(id); }
+      else { state.pendingLeft = id; state.pendingRight = null; markPending(id); }
     }
 
     function selectRight(id) {
@@ -291,12 +367,21 @@
         unpairByRight(id);
         // After freeing right, if a left is pending, pair them now
         if (state.pendingLeft) { makePair(state.pendingLeft, id); clearPending(); }
+        else if (state.pendingRight === id) { clearPending(); } 
+        else { state.pendingRight = id; state.pendingLeft = null; markPendingRight(id); }
         return;
       }
+      
       // If we have a pending left, create a new pair
-      if (!state.pendingLeft) return;
-      makePair(state.pendingLeft, id);
-      clearPending();
+      if (state.pendingLeft) {
+        makePair(state.pendingLeft, id);
+        clearPending();
+        return;
+      }
+      
+      // Toggle pending highlight for right side
+      if (state.pendingRight === id) { clearPending(); }
+      else { state.pendingRight = id; state.pendingLeft = null; markPendingRight(id); }
     }
 
     document.getElementById('btn-check').addEventListener('click', async ()=>{

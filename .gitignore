@@ -20,6 +20,9 @@ Thumbs.db
 .cache/
 cache/
 
+# Analytics data (contains user interactions)
+analytics/
+
 # Editors/IDE
 .vscode/
 .idea/

@@ -15,6 +15,8 @@ import json
 import random
 from pathlib import Path
 import re
+import uuid
+import time
 
 # Load environment variables
 load_dotenv()
@@ -33,6 +35,10 @@ class Config:
     RATE_LIMIT_ROLEPLAY_TURN = os.getenv('RATE_LIMIT_ROLEPLAY_TURN', '40/minute')
     RATE_LIMIT_ROLEPLAY_FEEDBACK = os.getenv('RATE_LIMIT_ROLEPLAY_FEEDBACK', '20/minute')
     RATE_LIMIT_MATCHING = os.getenv('RATE_LIMIT_MATCHING', '60/minute')
+    
+    # Data collection settings
+    ENABLE_ANALYTICS = os.getenv('ENABLE_ANALYTICS', 'true').lower() == 'true'
+    ANALYTICS_SAMPLE_RATE = float(os.getenv('ANALYTICS_SAMPLE_RATE', '1.0'))  # 1.0 = 100%
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
@@ -71,6 +77,43 @@ SYSTEM_MESSAGE = {
         "Keep responses short and encouraging."
     ),
 }
+
+# ---------- Data Collection & Analytics ----------
+def log_user_interaction(event_type, data, user_id=None, session_id=None):
+    """Log user interactions for pilot study analysis"""
+    if not Config.ENABLE_ANALYTICS:
+        return
+    
+    # Sample rate check
+    if random.random() > Config.ANALYTICS_SAMPLE_RATE:
+        return
+    
+    try:
+        # Create analytics directory
+        analytics_dir = Path(__file__).parent / 'analytics'
+        analytics_dir.mkdir(exist_ok=True)
+        
+        # Create log entry
+        log_entry = {
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'event_type': event_type,
+            'user_id': user_id or 'anonymous',
+            'session_id': session_id or str(uuid.uuid4())[:8],
+            'data': data,
+            'ip_hash': hash(request.remote_addr) if request and request.remote_addr else None
+        }
+        
+        # Write to daily log file
+        log_file = analytics_dir / f"pilot_data_{datetime.utcnow().strftime('%Y%m%d')}.jsonl"
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
+            
+    except Exception as e:
+        logger.warning(f"Analytics logging failed: {e}")
+
+def get_session_id():
+    """Get or create session ID from request headers"""
+    return request.headers.get('X-Session-ID', str(uuid.uuid4())[:8])
 
 # Load units configuration
 UNITS_PATH = Path(__file__).parent / "config" / "units.json"
@@ -504,7 +547,12 @@ def generate_ai_sample_sentence(unit, hanzi: str, pinyin: str, english: str):
         return None
 
 @app.route('/')
-def home():
+def index():
+    # Log page visit
+    log_user_interaction('page_visit', {
+        'page': 'home',
+        'user_agent': request.headers.get('User-Agent', '')[:200]
+    }, session_id=get_session_id())
     return render_template('index.html')
 
 # ---- Unit 2 Roleplay helpers: strict question list and simple progress tracking ----
@@ -693,6 +741,37 @@ VERSION = os.getenv('VERSION', '1.0.0')
 def version():
     return jsonify({ 'version': VERSION })
 
+# ---------- User Feedback Collection ----------
+@app.route('/feedback', methods=['POST'])
+def submit_feedback():
+    """Collect user feedback for pilot study"""
+    try:
+        data = request.json or {}
+        feedback_type = data.get('type', 'general')  # general, bug, feature, rating
+        message = (data.get('message') or '').strip()
+        rating = data.get('rating')  # 1-5 scale
+        page = data.get('page', 'unknown')
+        session_id = get_session_id()
+        
+        # Input validation
+        if len(message) > 1000:
+            return jsonify({'error': 'Feedback too long (max 1000 characters)'}), 400
+        
+        # Log feedback
+        log_user_interaction('user_feedback', {
+            'feedback_type': feedback_type,
+            'message': message,
+            'rating': rating,
+            'page': page,
+            'message_length': len(message)
+        }, session_id=session_id)
+        
+        return jsonify({'status': 'success', 'message': 'Thank you for your feedback!'})
+        
+    except Exception as e:
+        logger.error(f"Feedback submission error: {e}")
+        return jsonify({'error': 'Failed to submit feedback'}), 500
+
 # ---------- Character Matching Activity (adaptive, simple server-side) ----------
 @app.route('/activity/matching/start', methods=['POST'])
 def matching_start():
@@ -750,6 +829,14 @@ def matching_check():
     data = request.json or {}
     unit_id = data.get('unitId')
     pairs = data.get('pairs', [])  # list of {leftId, leftHanzi, rightId, rightValue}
+    session_id = get_session_id()
+    
+    # Log matching attempt
+    log_user_interaction('matching_attempt', {
+        'unit_id': unit_id,
+        'num_pairs': len(pairs),
+        'pairs_preview': pairs[:3] if pairs else []  # Log first 3 pairs for analysis
+    }, session_id=session_id)
     # Basic input constraints
     if not isinstance(pairs, list) or len(pairs) > 24:
         return jsonify({'error': 'too many pairs'}), 400
@@ -961,14 +1048,26 @@ def roleplay_turn():
     try:
         if client is None:
             return jsonify({'error': 'OpenAI API key is not configured.'}), 500
+        
         data = request.json or {}
         unit_id = data.get('unitId')
-        history = data.get('history', [])  # list of {role: 'user'|'assistant', content: '...'}
-        user_msg = (data.get('message') or '').strip()
-        # Max chars per turn
-        if len(user_msg) > Config.MAX_TURN_CHARS:
-            return jsonify({'error': f'message too long (>{Config.MAX_TURN_CHARS} chars)'}), 400
-        if not user_msg:
+        user_message = (data.get('message') or '').strip()
+        student_name = (data.get('studentName') or '').strip()
+        history = data.get('history', [])  # Add missing history variable
+        session_id = get_session_id()
+        
+        # Log roleplay interaction
+        log_user_interaction('roleplay_turn', {
+            'unit_id': unit_id,
+            'message_length': len(user_message),
+            'has_student_name': bool(student_name),
+            'user_message': user_message[:100] + '...' if len(user_message) > 100 else user_message  # Truncate for privacy
+        }, session_id=session_id)
+        
+        # Input validation
+        if len(user_message) > Config.MAX_TURN_CHARS:
+            return jsonify({'error': f'Message too long (max {Config.MAX_TURN_CHARS} characters)'}), 400
+        if not user_message:
             return jsonify({'error': 'message is required'}), 400
         unit = get_unit(unit_id)
         if not unit:
@@ -978,7 +1077,7 @@ def roleplay_turn():
         def _said_goodbye(text: str) -> bool:
             tokens = ['再见', '拜拜', '回头见', 'bye', 'Bye', 'goodbye']
             return any(tok in (text or '') for tok in tokens)
-        if _said_goodbye(user_msg):
+        if _said_goodbye(user_message):
             reply = "再见！(Zàijiàn!) 记得查看反馈并下载你的学习证明（学习总结/徽章）。"
             return jsonify({ 'reply': reply })
 
@@ -988,31 +1087,40 @@ def roleplay_turn():
             "Persona: You are the student's Mandarin language partner (语言朋友), NEVER say you are an AI. "
             "Name 李爱 (Emily), from Beijing, Chinese teacher, phone 1358679042. Friend 高山 (Gordon), American doctor; he is tall and handsome; you are short.\n"
             "During the role play, answer in Chinese with pinyin in parentheses, no English unless asked for help/slow-down/they don't understand. "
-            "Turn order: The student should ask questions first. Only respond after they ask, and guide them to ask the next question if needed. "
+            "Turn order: The student should ask questions first. Only respond after they ask. Do not guide them or ask any questions. "
             "Disclosure constraint: Only reveal information that the student explicitly asks for. Do NOT volunteer extra details. Keep answers BRIEF and on-topic. "
             "Minimal answers examples: If asked ‘你家有几口人？’, reply only ‘我家有五口人。(Wǒ jiā yǒu wǔ kǒu rén.)’. Do NOT list family members unless asked ‘都有谁？/他们是谁？’. If asked ‘你哥哥多大？’ but the student earlier said they have no 哥哥, explain briefly and suggest another allowed question. "
             "Do NOT suggest new questions. After answering, you MAY ask the SAME question back ONCE (briefly, e.g., ‘你呢？’ or a direct restatement), but only if the student asked you first and it feels natural. Otherwise WAIT silently. "
             "Keep sentences short and beginner-friendly. Avoid using ‘你呢?’ after every turn. Answer the student's question, then decide naturally whether to invite them to share, using varied phrasing; skip it if unnatural. "
-            "Encourage asking: Read the last several user turns; if the student has given only answers without asking any question for two consecutive turns, gently nudge them in Chinese to ask you a question (no suggestions), then provide a very short English fallback line. After they begin asking again, stop nudging. When you do reciprocal asks, vary phrasing and do not overuse ‘你呢？’. "
-            "Progress coverage: Keep track mentally of which target questions were asked. If some remain, you may briefly remind the student to continue when appropriate, but do NOT propose specific questions. "
+            "Encourage asking: Read the last several user turns; if the student has given only answers without asking any question for two consecutive turns, gently nudge them in Chinese to ask you a question (no suggestions), then provide a very short English fallback line. IMPORTANT: Only give this nudge message ONCE until the student responds with any input. Do not repeat the nudge message multiple times. After they begin asking again, stop nudging. When you do reciprocal asks, vary phrasing and do not overuse ‘你呢？’. "
+            "Progress coverage: Keep track mentally of which target questions were asked. If some remain, you may briefly remind the student to continue when appropriate, but do NOT propose specific questions. IMPORTANT: Only give progress reminders ONCE until the student responds - do not repeat reminders. "
             "Apologies: When apologizing, always use ‘对不起 (duìbuqǐ)’, not ‘抱歉’. "
             "Do not provide corrections mid-conversation. Save feedback for the end."
         )
         messages = [
+            { 'role': 'system', 'content': "ABSOLUTE PRIORITY: Track your help messages. If you have already sent ANY encouragement, nudge, reminder, or help message in this conversation, do NOT send another one until the student provides a new response. Only ONE help message per student response cycle." },
+            { 'role': 'system', 'content': "ABSOLUTE PRIORITY: NEVER ask about family members that don't exist. If a student says they have X number of people and lists them all, do NOT ask about anyone else. Example: '我家有四口人爸爸妈妈姐姐和我' means ONLY 4 people exist - do not ask about brothers or other siblings." },
+            { 'role': 'system', 'content': "CRITICAL BEHAVIOR: After your opening greeting, wait for students to ask questions first. Once they start asking questions, you may ask EXACTLY 3 contextually relevant follow-up questions during the entire conversation (keep count). Only ask follow-up questions AFTER answering their question first. Ask questions that make sense based on the topic - for example, if they ask about your schedule, you can ask about theirs; if they ask about your family, ask about theirs. Do NOT ask '你呢？' for factual information like dates or times that would be the same for everyone. Do not ask questions in your very first response after greeting. After you have asked 3 questions, only answer student questions without asking anything back. IMPORTANT: If you need to encourage a student to ask questions, do it only ONCE until they respond with any input - do not repeat encouragement messages." },
             { 'role': 'system', 'content': persona_rules + f"\nUnit-specific guidance: {rp_prompt}" }
         ]
+        # Unit 1: Getting Acquainted - ensure 3-question limit
+        if unit.get('id') == 'unit1':
+            messages.append({ 'role': 'system', 'content': (
+                "UNIT 1 STRICT: Do NOT suggest questions (no phrases like '你可以问我…'). "
+                "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your name, ask about theirs; if they ask about your job, ask about theirs), but remember you can only ask 3 questions total for the entire conversation. Do NOT ask '你呢？' for factual information. IMPORTANT: Any encouragement messages should only be sent ONCE until student responds."
+            )})
         # Unit 3: No suggestions; allow only brief reciprocal (same question back once) if natural
         if unit.get('id') == 'unit3':
             messages.append({ 'role': 'system', 'content': (
                 "UNIT 3 STRICT: Do NOT suggest questions (no phrases like ‘你可以问我…’). "
-                "Answer BRIEFLY exactly what the student asks. You MAY ask the SAME question back once if appropriate; otherwise WAIT silently."
+                "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your schedule, ask about theirs), but remember you can only ask 3 questions total for the entire conversation. Do NOT ask '你呢？' for factual information like dates or times. IMPORTANT: Any encouragement messages should only be sent ONCE until student responds."
             )})
         # For Unit 2, inject strict sequencing controller and progress hints
         if unit.get('id') == 'unit2':
             # Unit 2: Do not suggest next questions; only answer briefly and wait
             messages.append({ 'role': 'system', 'content': (
                 "UNIT 2 STRICT: Do NOT suggest questions (no phrases like ‘你可以问我…’). "
-                "Only answer BRIEFLY exactly what the student asks, then wait silently for their next question."
+                "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your family, ask about theirs), but remember you can only ask 3 questions total for the entire conversation. CRITICAL FAMILY LOGIC: When students describe their family, listen to EXACTLY who they mention. Common examples: (1) '我家有三口人爸爸妈妈和我' = NO siblings, only ask about parents. (2) '我家有四口人爸爸妈妈哥哥和我' = ONE older brother only, don't ask about sisters or younger brothers. (3) '我家有五口人爸爸妈妈哥哥妹妹和我' = ONE older brother and ONE younger sister only. (4) '我家有六口人爸爸妈妈爷爷奶奶姐姐和我' = grandparents and ONE older sister only. Always count the total number they give and match it exactly to who they list - never ask about family members they didn't mention. Do NOT ask '你呢？' for factual information like ages or dates. IMPORTANT: Any encouragement messages should only be sent ONCE until student responds."
             )})
             unit2_qs = _unit2_questions()
             prog = _unit2_progress_hint(history)
@@ -1035,21 +1143,61 @@ def roleplay_turn():
             ]
             said_no_siblings = any(p in norm for p in no_siblings_phrases)
             said_three = ('三口人' in norm) or ('三个人' in norm)
+            said_four = ('四口人' in norm) or ('四个人' in norm)
+            said_five = ('五口人' in norm) or ('五个人' in norm)
+            said_six = ('六口人' in norm) or ('六个人' in norm)
             mentions_parents_and_me = ('爸爸' in norm and '妈妈' in norm and '我' in norm)
             only_parents_and_me = mentions_parents_and_me and said_three and not any(w in norm for w in ['哥哥','姐姐','弟弟','妹妹'])
+            
+            # 4-person family patterns
+            four_person_only_older_sister = said_four and mentions_parents_and_me and ('姐姐' in norm) and not any(w in norm for w in ['弟弟','哥哥','妹妹'])
+            four_person_only_younger_sister = said_four and mentions_parents_and_me and ('妹妹' in norm) and not any(w in norm for w in ['弟弟','哥哥','姐姐'])
+            four_person_only_older_brother = said_four and mentions_parents_and_me and ('哥哥' in norm) and not any(w in norm for w in ['弟弟','姐姐','妹妹'])
+            four_person_only_younger_brother = said_four and mentions_parents_and_me and ('弟弟' in norm) and not any(w in norm for w in ['哥哥','姐姐','妹妹'])
+            
+            # 5-person family patterns (exactly two siblings)
+            five_person_older_bro_older_sis = said_five and mentions_parents_and_me and ('哥哥' in norm) and ('姐姐' in norm) and not any(w in norm for w in ['弟弟','妹妹'])
+            five_person_older_bro_younger_bro = said_five and mentions_parents_and_me and ('哥哥' in norm) and ('弟弟' in norm) and not any(w in norm for w in ['姐姐','妹妹'])
+            five_person_older_sis_younger_sis = said_five and mentions_parents_and_me and ('姐姐' in norm) and ('妹妹' in norm) and not any(w in norm for w in ['哥哥','弟弟'])
+            five_person_younger_bro_younger_sis = said_five and mentions_parents_and_me and ('弟弟' in norm) and ('妹妹' in norm) and not any(w in norm for w in ['哥哥','姐姐'])
+            five_person_older_bro_younger_sis = said_five and mentions_parents_and_me and ('哥哥' in norm) and ('妹妹' in norm) and not any(w in norm for w in ['弟弟','姐姐'])
+            five_person_older_sis_younger_bro = said_five and mentions_parents_and_me and ('姐姐' in norm) and ('弟弟' in norm) and not any(w in norm for w in ['哥哥','妹妹'])
+            
+            # 6-person family patterns (exactly three siblings) - Common combinations
+            six_person_all_older = said_six and mentions_parents_and_me and ('哥哥' in norm) and ('姐姐' in norm) and not any(w in norm for w in ['弟弟','妹妹'])  # Only older siblings
+            six_person_all_younger = said_six and mentions_parents_and_me and ('弟弟' in norm) and ('妹妹' in norm) and not any(w in norm for w in ['哥哥','姐姐'])  # Only younger siblings
+            six_person_older_bro_both_sis = said_six and mentions_parents_and_me and ('哥哥' in norm) and ('姐姐' in norm) and ('妹妹' in norm) and ('弟弟' not in norm)  # Older bro + both sisters
+            six_person_older_sis_both_bro = said_six and mentions_parents_and_me and ('姐姐' in norm) and ('哥哥' in norm) and ('弟弟' in norm) and ('妹妹' not in norm)  # Older sis + both brothers
+            six_person_younger_bro_both_sis = said_six and mentions_parents_and_me and ('弟弟' in norm) and ('姐姐' in norm) and ('妹妹' in norm) and ('哥哥' not in norm)  # Younger bro + both sisters
+            six_person_younger_sis_both_bro = said_six and mentions_parents_and_me and ('妹妹' in norm) and ('哥哥' in norm) and ('弟弟' in norm) and ('姐姐' not in norm)  # Younger sis + both brothers
             no_siblings = said_no_siblings or only_parents_and_me or (facts.get('has_siblings') is False)
             def allow(q: str) -> bool:
-                # Skip older-brother follow-ups if student said no older brother
-                if ( '哥哥' in q) and (facts.get('has_older_brother') is False):
+                # Determine what siblings DON'T exist based on family composition
+                no_older_brother = (four_person_only_older_sister or four_person_only_younger_sister or 
+                                   four_person_only_younger_brother or five_person_older_sis_younger_sis or 
+                                   five_person_younger_bro_younger_sis or five_person_older_sis_younger_bro or
+                                   six_person_all_younger or six_person_younger_bro_both_sis)
+                no_younger_brother = (four_person_only_older_sister or four_person_only_younger_sister or 
+                                     four_person_only_older_brother or five_person_older_bro_older_sis or 
+                                     five_person_older_sis_younger_sis or five_person_older_bro_younger_sis or
+                                     six_person_all_older or six_person_older_bro_both_sis)
+                no_older_sister = (four_person_only_younger_sister or four_person_only_older_brother or 
+                                  four_person_only_younger_brother or five_person_older_bro_younger_bro or 
+                                  five_person_younger_bro_younger_sis or five_person_older_bro_younger_sis or
+                                  six_person_all_younger or six_person_younger_sis_both_bro)
+                no_younger_sister = (four_person_only_older_sister or four_person_only_older_brother or 
+                                    four_person_only_younger_brother or five_person_older_bro_older_sis or 
+                                    five_person_older_bro_younger_bro or five_person_older_sis_younger_bro or
+                                    six_person_all_older or six_person_older_sis_both_bro)
+                
+                # Apply filtering rules
+                if ('哥哥' in q) and ((facts.get('has_older_brother') is False) or no_older_brother):
                     return False
-                # Skip younger-brother follow-ups if student said no younger brother
-                if ('弟弟' in q) and (facts.get('has_younger_brother') is False):
+                if ('弟弟' in q) and ((facts.get('has_younger_brother') is False) or no_younger_brother):
                     return False
-                # Skip older-sister if said none
-                if ('姐姐' in q) and (facts.get('has_older_sister') is False):
+                if ('姐姐' in q) and ((facts.get('has_older_sister') is False) or no_older_sister):
                     return False
-                # Skip younger-sister if said none
-                if ('妹妹' in q) and (facts.get('has_younger_sister') is False):
+                if ('妹妹' in q) and ((facts.get('has_younger_sister') is False) or no_younger_sister):
                     return False
                 # If the student said they have only parents and self (or no siblings), skip any sibling-related question
                 if no_siblings and any(ch in q for ch in ['哥哥','姐姐','弟弟','妹妹','兄弟姐妹']):
@@ -1073,7 +1221,7 @@ def roleplay_turn():
         for m in history:
             if m.get('role') in ('user','assistant') and m.get('content'):
                 messages.append({ 'role': m['role'], 'content': m['content'] })
-        messages.append({ 'role': 'user', 'content': user_msg })
+        messages.append({ 'role': 'user', 'content': user_message })
 
         resp = client.chat.completions.create(
             model="gpt-4o-mini",

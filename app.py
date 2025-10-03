@@ -1098,16 +1098,17 @@ def roleplay_turn():
             "Do not provide corrections mid-conversation. Save feedback for the end."
         )
         messages = [
+            { 'role': 'system', 'content': "ABSOLUTE PRIORITY: You can ask MAXIMUM 3 questions in the entire conversation. Count each question you ask: Question 1, Question 2, Question 3. After Question 3, NEVER ask another question. Only answer what students ask." },
             { 'role': 'system', 'content': "ABSOLUTE PRIORITY: Track your help messages. If you have already sent ANY encouragement, nudge, reminder, or help message in this conversation, do NOT send another one until the student provides a new response. Only ONE help message per student response cycle." },
             { 'role': 'system', 'content': "ABSOLUTE PRIORITY: NEVER ask about family members that don't exist. If a student says they have X number of people and lists them all, do NOT ask about anyone else. Example: '我家有四口人爸爸妈妈姐姐和我' means ONLY 4 people exist - do not ask about brothers or other siblings." },
-            { 'role': 'system', 'content': "CRITICAL BEHAVIOR: After your opening greeting, wait for students to ask questions first. Once they start asking questions, you may ask EXACTLY 3 contextually relevant follow-up questions during the entire conversation (keep count). Only ask follow-up questions AFTER answering their question first. Ask questions that make sense based on the topic - for example, if they ask about your schedule, you can ask about theirs; if they ask about your family, ask about theirs. Do NOT ask '你呢？' for factual information like dates or times that would be the same for everyone. Do not ask questions in your very first response after greeting. After you have asked 3 questions, only answer student questions without asking anything back. IMPORTANT: If you need to encourage a student to ask questions, do it only ONCE until they respond with any input - do not repeat encouragement messages." },
+            { 'role': 'system', 'content': "CRITICAL BEHAVIOR: After your opening greeting, wait for students to ask questions first. Once they start asking questions, you may ask EXACTLY 3 contextually relevant follow-up questions during the entire conversation. COUNT YOUR QUESTIONS: 1st question, 2nd question, 3rd question, then STOP asking questions forever. Only ask follow-up questions AFTER answering their question first. Ask questions that make sense based on the topic - for example, if they ask about your schedule, you can ask about theirs; if they ask about your family, ask about theirs. Do NOT ask '你呢？' for factual information like dates or times that would be the same for everyone. Do not ask questions in your very first response after greeting. After you have asked 3 questions, only answer student questions without asking anything back. IMPORTANT: If you need to encourage a student to ask questions, do it only ONCE until they respond with any input - do not repeat encouragement messages." },
             { 'role': 'system', 'content': persona_rules + f"\nUnit-specific guidance: {rp_prompt}" }
         ]
         # Unit 1: Getting Acquainted - ensure 3-question limit
         if unit.get('id') == 'unit1':
             messages.append({ 'role': 'system', 'content': (
                 "UNIT 1 STRICT: Do NOT suggest questions (no phrases like '你可以问我…'). "
-                "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your name, ask about theirs; if they ask about your job, ask about theirs), but remember you can only ask 3 questions total for the entire conversation. Do NOT ask '你呢？' for factual information. IMPORTANT: Any encouragement messages should only be sent ONCE until student responds."
+                "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your name, ask about theirs; if they ask about your job, ask about theirs), but remember you can only ask 3 questions total for the entire conversation. Do NOT ask '你呢？' for factual information. IMPORTANT: Do NOT ask students about people they don't know (like your friends) or information only you would have. Only ask about things students can actually answer about themselves. Any encouragement messages should only be sent ONCE until student responds."
             )})
         # Unit 3: No suggestions; allow only brief reciprocal (same question back once) if natural
         if unit.get('id') == 'unit3':
@@ -1170,6 +1171,7 @@ def roleplay_turn():
             six_person_older_sis_both_bro = said_six and mentions_parents_and_me and ('姐姐' in norm) and ('哥哥' in norm) and ('弟弟' in norm) and ('妹妹' not in norm)  # Older sis + both brothers
             six_person_younger_bro_both_sis = said_six and mentions_parents_and_me and ('弟弟' in norm) and ('姐姐' in norm) and ('妹妹' in norm) and ('哥哥' not in norm)  # Younger bro + both sisters
             six_person_younger_sis_both_bro = said_six and mentions_parents_and_me and ('妹妹' in norm) and ('哥哥' in norm) and ('弟弟' in norm) and ('姐姐' not in norm)  # Younger sis + both brothers
+            six_person_both_older_younger_sis = said_six and mentions_parents_and_me and ('哥哥' in norm) and ('姐姐' in norm) and ('妹妹' in norm) and ('弟弟' not in norm)  # Both older siblings + younger sister
             no_siblings = said_no_siblings or only_parents_and_me or (facts.get('has_siblings') is False)
             def allow(q: str) -> bool:
                 # Determine what siblings DON'T exist based on family composition
@@ -1180,7 +1182,7 @@ def roleplay_turn():
                 no_younger_brother = (four_person_only_older_sister or four_person_only_younger_sister or 
                                      four_person_only_older_brother or five_person_older_bro_older_sis or 
                                      five_person_older_sis_younger_sis or five_person_older_bro_younger_sis or
-                                     six_person_all_older or six_person_older_bro_both_sis)
+                                     six_person_all_older or six_person_older_bro_both_sis or six_person_both_older_younger_sis)
                 no_older_sister = (four_person_only_younger_sister or four_person_only_older_brother or 
                                   four_person_only_younger_brother or five_person_older_bro_younger_bro or 
                                   five_person_younger_bro_younger_sis or five_person_older_bro_younger_sis or

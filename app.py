@@ -1098,29 +1098,32 @@ def roleplay_turn():
             "Do not provide corrections mid-conversation. Save feedback for the end."
         )
         messages = [
-            { 'role': 'system', 'content': "ABSOLUTE PRIORITY: You can ask MAXIMUM 3 questions in the entire conversation. Count each question you ask: Question 1, Question 2, Question 3. After Question 3, NEVER ask another question. Only answer what students ask." },
+            { 'role': 'system', 'content': "ABSOLUTE PRIORITY: You have exactly 3 predetermined questions you can ask in this conversation. Use them contextually when appropriate, then become purely responsive. Do not ask any questions outside of your predetermined set." },
             { 'role': 'system', 'content': "ABSOLUTE PRIORITY: Track your help messages. If you have already sent ANY encouragement, nudge, reminder, or help message in this conversation, do NOT send another one until the student provides a new response. Only ONE help message per student response cycle." },
             { 'role': 'system', 'content': "ABSOLUTE PRIORITY: NEVER ask about family members that don't exist. If a student says they have X number of people and lists them all, do NOT ask about anyone else. Example: '我家有四口人爸爸妈妈姐姐和我' means ONLY 4 people exist - do not ask about brothers or other siblings." },
             { 'role': 'system', 'content': "CRITICAL BEHAVIOR: After your opening greeting, wait for students to ask questions first. Once they start asking questions, you may ask EXACTLY 3 contextually relevant follow-up questions during the entire conversation. COUNT YOUR QUESTIONS: 1st question, 2nd question, 3rd question, then STOP asking questions forever. Only ask follow-up questions AFTER answering their question first. Ask questions that make sense based on the topic - for example, if they ask about your schedule, you can ask about theirs; if they ask about your family, ask about theirs. Do NOT ask '你呢？' for factual information like dates or times that would be the same for everyone. Do not ask questions in your very first response after greeting. After you have asked 3 questions, only answer student questions without asking anything back. IMPORTANT: If you need to encourage a student to ask questions, do it only ONCE until they respond with any input - do not repeat encouragement messages." },
             { 'role': 'system', 'content': persona_rules + f"\nUnit-specific guidance: {rp_prompt}" }
         ]
-        # Unit 1: Getting Acquainted - ensure 3-question limit
+        # Unit 1: Getting Acquainted - predetermined question set
         if unit.get('id') == 'unit1':
             messages.append({ 'role': 'system', 'content': (
-                "UNIT 1 STRICT: Do NOT suggest questions (no phrases like '你可以问我…'). "
-                "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your name, ask about theirs; if they ask about your job, ask about theirs), but remember you can only ask 3 questions total for the entire conversation. Do NOT ask '你呢？' for factual information. IMPORTANT: Do NOT ask students about people they don't know (like your friends) or information only you would have. Only ask about things students can actually answer about themselves. Any encouragement messages should only be sent ONCE until student responds."
+                "UNIT 1 PREDETERMINED QUESTIONS: You may ask these 3 questions contextually when appropriate: "
+                "1. '你叫什么名字？' (if student asks your name first), "
+                "2. '你是医生吗？' (if student asks about your job first), "
+                "3. '你高吗？' (if student asks about your height first). "
+                "Once you've used all 3 questions, only answer what students ask. Do NOT suggest questions or ask anything outside this set."
             )})
         # Unit 3: No suggestions; allow only brief reciprocal (same question back once) if natural
         if unit.get('id') == 'unit3':
             messages.append({ 'role': 'system', 'content': (
-                "UNIT 3 STRICT: Do NOT suggest questions (no phrases like ‘你可以问我…’). "
+                "UNIT 3 PREDETERMINED QUESTIONS: You may ask these 3 questions contextually when appropriate: 1. '你今天几点起床？' (if student asks about your schedule first), 2. '你今天有什么课？' (if student asks about your classes first), 3. '你周末做什么？' (if student asks about your weekend activities first). Once you've used all 3 questions, only answer what students ask. Do NOT suggest questions or ask anything outside this set. (no phrases like ‘你可以问我…’). "
                 "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your schedule, ask about theirs), but remember you can only ask 3 questions total for the entire conversation. Do NOT ask '你呢？' for factual information like dates or times. IMPORTANT: Any encouragement messages should only be sent ONCE until student responds."
             )})
         # For Unit 2, inject strict sequencing controller and progress hints
         if unit.get('id') == 'unit2':
             # Unit 2: Do not suggest next questions; only answer briefly and wait
             messages.append({ 'role': 'system', 'content': (
-                "UNIT 2 STRICT: Do NOT suggest questions (no phrases like ‘你可以问我…’). "
+                "UNIT 2 PREDETERMINED QUESTIONS: You may ask these 3 questions contextually when appropriate: 1. '你家有几口人？' (if student asks about your family first), 2. '你爸爸妈妈多少岁了？' (if student ask about your parents' ages first), 3. '你多大？' (if student asks about your age first). Once you've used all 3 questions, only answer what students ask. Follow family logic rules (no phrases like ‘你可以问我…’). "
                 "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your family, ask about theirs), but remember you can only ask 3 questions total for the entire conversation. CRITICAL FAMILY LOGIC: When students describe their family, listen to EXACTLY who they mention. Common examples: (1) '我家有三口人爸爸妈妈和我' = NO siblings, only ask about parents. (2) '我家有四口人爸爸妈妈哥哥和我' = ONE older brother only, don't ask about sisters or younger brothers. (3) '我家有五口人爸爸妈妈哥哥妹妹和我' = ONE older brother and ONE younger sister only. (4) '我家有六口人爸爸妈妈爷爷奶奶姐姐和我' = grandparents and ONE older sister only. Always count the total number they give and match it exactly to who they list - never ask about family members they didn't mention. Do NOT ask '你呢？' for factual information like ages or dates. IMPORTANT: Any encouragement messages should only be sent ONCE until student responds."
             )})
             unit2_qs = _unit2_questions()

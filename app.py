@@ -1098,20 +1098,21 @@ def roleplay_turn():
             "Do not provide corrections mid-conversation. Save feedback for the end."
         )
         messages = [
-            { 'role': 'system', 'content': "ABSOLUTE PRIORITY: You have exactly 3 predetermined questions you can ask in this conversation. Use them contextually when appropriate, then become purely responsive. Do not ask any questions outside of your predetermined set." },
+            { 'role': 'system', 'content': "ABSOLUTE PRIORITY: You have exactly 4 predetermined questions you can ask in this conversation (Unit 1 has 4, other units have 3). Use them only when specific conditions are met, then become purely responsive. Do not ask any questions outside of your predetermined set." },
             { 'role': 'system', 'content': "ABSOLUTE PRIORITY: Track your help messages. If you have already sent ANY encouragement, nudge, reminder, or help message in this conversation, do NOT send another one until the student provides a new response. Only ONE help message per student response cycle." },
             { 'role': 'system', 'content': "ABSOLUTE PRIORITY: NEVER ask about family members that don't exist. If a student says they have X number of people and lists them all, do NOT ask about anyone else. Example: '我家有四口人爸爸妈妈姐姐和我' means ONLY 4 people exist - do not ask about brothers or other siblings." },
-            { 'role': 'system', 'content': "CRITICAL BEHAVIOR: After your opening greeting, wait for students to ask questions first. Once they start asking questions, you may ask EXACTLY 3 contextually relevant follow-up questions during the entire conversation. COUNT YOUR QUESTIONS: 1st question, 2nd question, 3rd question, then STOP asking questions forever. Only ask follow-up questions AFTER answering their question first. Ask questions that make sense based on the topic - for example, if they ask about your schedule, you can ask about theirs; if they ask about your family, ask about theirs. Do NOT ask '你呢？' for factual information like dates or times that would be the same for everyone. Do not ask questions in your very first response after greeting. After you have asked 3 questions, only answer student questions without asking anything back. IMPORTANT: If you need to encourage a student to ask questions, do it only ONCE until they respond with any input - do not repeat encouragement messages." },
+            { 'role': 'system', 'content': "CRITICAL BEHAVIOR: After your opening greeting, wait for students to ask questions first. Once they start asking questions, you may ask your predetermined follow-up questions during the entire conversation (Unit 1: max 4 questions, other units: max 3 questions). COUNT YOUR QUESTIONS carefully, then STOP asking questions forever once you reach your limit. Only ask follow-up questions AFTER answering their question first AND only when the specific conditions are met. Ask questions that make sense based on the topic - for example, if they ask about your schedule, you can ask about theirs; if they ask about your family, ask about theirs. Do NOT ask '你呢？' for factual information like dates or times that would be the same for everyone. Do not ask questions in your very first response after greeting. After you have asked your maximum number of questions, only answer student questions without asking anything back. IMPORTANT: If you need to encourage a student to ask questions, do it only ONCE until they respond with any input - do not repeat encouragement messages." },
             { 'role': 'system', 'content': persona_rules + f"\nUnit-specific guidance: {rp_prompt}" }
         ]
         # Unit 1: Getting Acquainted - predetermined question set
         if unit.get('id') == 'unit1':
             messages.append({ 'role': 'system', 'content': (
-                "UNIT 1 PREDETERMINED QUESTIONS: You may ask these 3 questions contextually when appropriate: "
-                "1. '你叫什么名字？' (if student asks your name first), "
-                "2. '你是医生吗？' (if student asks about your job first), "
-                "3. '你高吗？' (if student asks about your height first). "
-                "Once you've used all 3 questions, only answer what students ask. Do NOT suggest questions or ask anything outside this set."
+                "UNIT 1 PREDETERMINED QUESTIONS: You may ask these 4 questions ONLY under specific conditions: "
+                "1. '你叫什么名字？' - ONLY ask this AFTER you have shared your own name 李爱, "
+                "2. '你也是老师吗？' - ONLY ask this AFTER you have shared that you are a teacher, "
+                "3. '你的朋友叫什么？' - ONLY ask this AFTER you have told students that your friend's name is 高山, "
+                "4. '你的电话号码是什么？' - ONLY ask this AFTER you have told students your phone number. "
+                "Each question can only be asked ONCE. You can ask a maximum of 4 questions total. Do NOT ask questions unless the specific condition has been met first."
             )})
         # Unit 3: No suggestions; allow only brief reciprocal (same question back once) if natural
         if unit.get('id') == 'unit3':

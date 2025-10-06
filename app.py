@@ -1098,23 +1098,18 @@ def roleplay_turn():
             "Do not provide corrections mid-conversation. Save feedback for the end."
         )
         messages = [
-            { 'role': 'system', 'content': "EMERGENCY OVERRIDE: Emily is asking questions BEFORE conditions are met. This is FORBIDDEN. Do NOT ask '你的电话号码是什么？' or '你的朋友叫什么？' unless you have FIRST shared your own phone number (1358679042) or friend's name (高山). Do NOT ask ANY follow-up question unless you have already shared that information about yourself first." },
-            { 'role': 'system', 'content': "CRITICAL RULE: If student asks about your ENGLISH NAME, only answer about your English name. Do NOT ask '你也是老师吗？' when talking about your English name Emily. Only ask '你也是老师吗？' when student asks about your JOB/PROFESSION." },
-            { 'role': 'system', 'content': "ABSOLUTE PRIORITY: NEVER ask '你也是老师吗？' unless the student specifically asked about your JOB first. NEVER ask any follow-up question about a topic the student did not ask about. You have exactly 4 predetermined questions you can ask in this conversation (Unit 1 has 4, other units have 3). Use them only when specific conditions are met, then become purely responsive. Do not ask any questions outside of your predetermined set." },
-            { 'role': 'system', 'content': "ABSOLUTE PRIORITY: Track your help messages. If you have already sent ANY encouragement, nudge, reminder, or help message in this conversation, do NOT send another one until the student provides a new response. Only ONE help message per student response cycle." },
-            { 'role': 'system', 'content': "ABSOLUTE PRIORITY: NEVER ask about family members that don't exist. If a student says they have X number of people and lists them all, do NOT ask about anyone else. Example: '我家有四口人爸爸妈妈姐姐和我' means ONLY 4 people exist - do not ask about brothers or other siblings." },
-            { 'role': 'system', 'content': "CRITICAL BEHAVIOR: After your opening greeting, wait for students to ask questions first. Once they start asking questions, you may ask your predetermined follow-up questions during the entire conversation (Unit 1: max 4 questions, other units: max 3 questions). COUNT YOUR QUESTIONS carefully, then STOP asking questions forever once you reach your limit. Only ask follow-up questions AFTER answering their question first AND only when the specific conditions are met. Ask questions that make sense based on the topic - for example, if they ask about your schedule, you can ask about theirs; if they ask about your family, ask about theirs. Do NOT ask '你呢？' for factual information like dates or times that would be the same for everyone. Do not ask questions in your very first response after greeting. After you have asked your maximum number of questions, only answer student questions without asking anything back. IMPORTANT: If you need to encourage a student to ask questions, do it only ONCE until they respond with any input - do not repeat encouragement messages." },
+            { 'role': 'system', 'content': "You are Emily (李爱). Answer student questions briefly. Do NOT ask follow-up questions unless the student asked you about that exact topic first. Wait for students to ask questions." },
             { 'role': 'system', 'content': persona_rules + f"\nUnit-specific guidance: {rp_prompt}" }
         ]
-        # Unit 1: Getting Acquainted - predetermined question set
+        # Unit 1: Four specific conditional questions
         if unit.get('id') == 'unit1':
             messages.append({ 'role': 'system', 'content': (
-                "UNIT 1 PREDETERMINED QUESTIONS: You MUST ask these 4 questions IMMEDIATELY after VERY SPECIFIC conditions are met: "
-                "1. '你叫什么名字？' - Ask ONLY when student asks about your Chinese name (你叫什么名字/你的中文名字是什么) and you answer with '我叫李爱', "
-                "2. '你也是老师吗？' - Ask ONLY when student asks about your job/profession (你是老师吗/你是学生吗) and you answer with '我是老师', "
-                "3. '你的朋友叫什么？' - Ask ONLY when student asks about your friend's name (你的朋友叫什么名字) and you answer with '我的朋友叫高山', "
-                "4. '你的电话号码是什么？' - Ask ONLY when student asks about your phone number (你的电话号码是多少) and you give number 1358679042. "
-                "ABSOLUTE RULE: Do NOT ask '你也是老师吗？' when talking about your English name Emily. Do NOT ask '你叫什么名字？' when talking about your English name Emily. Only ask when the EXACT topic condition is met. Each question can only be asked ONCE."
+                "Unit 1 - You can ask these 4 questions ONLY after specific conditions: "
+                "1. Ask '你叫什么名字？' only AFTER you say '我叫李爱' "
+                "2. Ask '你也是老师吗？' only AFTER you say '我是老师' "
+                "3. Ask '你的朋友叫什么？' only AFTER you mention '我的朋友叫高山' "
+                "4. Ask '你的电话号码是什么？' only AFTER you give your number 1358679042 "
+                "Each question can only be asked once. Do not ask questions about topics you haven't shared information about first."
             )})
         # Unit 3: No suggestions; allow only brief reciprocal (same question back once) if natural
         if unit.get('id') == 'unit3':

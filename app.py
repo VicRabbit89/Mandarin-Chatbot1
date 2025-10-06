@@ -1107,12 +1107,12 @@ def roleplay_turn():
         # Unit 1: Getting Acquainted - predetermined question set
         if unit.get('id') == 'unit1':
             messages.append({ 'role': 'system', 'content': (
-                "UNIT 1 PREDETERMINED QUESTIONS: You MUST ask these 4 questions IMMEDIATELY after specific conditions are met: "
-                "1. '你叫什么名字？' - Ask this IMMEDIATELY after you answer a question about YOUR NAME and say '我叫李爱' or '我的名字是李爱', "
-                "2. '你也是老师吗？' - Ask this IMMEDIATELY after you answer a question about YOUR JOB/PROFESSION and say '我是老师' or mention you are a teacher, "
-                "3. '你的朋友叫什么？' - Ask this IMMEDIATELY after you answer a question about YOUR FRIEND and mention '我的朋友叫高山' or '他叫高山', "
-                "4. '你的电话号码是什么？' - Ask this IMMEDIATELY after you answer a question about YOUR PHONE NUMBER and give your number 1358679042. "
-                "CRITICAL: Only ask these questions when you are ANSWERING the student's question about that specific topic. Do NOT ask '你也是老师吗？' unless the student specifically asked about your job/profession first. Each question can only be asked ONCE."
+                "UNIT 1 PREDETERMINED QUESTIONS: You MUST ask these 4 questions IMMEDIATELY after VERY SPECIFIC conditions are met: "
+                "1. '你叫什么名字？' - Ask ONLY when student asks about your Chinese name (你叫什么名字/你的中文名字是什么) and you answer with '我叫李爱', "
+                "2. '你也是老师吗？' - Ask ONLY when student asks about your job/profession (你是老师吗/你做什么工作) and you answer with '我是老师', "
+                "3. '你的朋友叫什么？' - Ask ONLY when student asks about your friend's name (你的朋友叫什么名字) and you answer with '我的朋友叫高山', "
+                "4. '你的电话号码是什么？' - Ask ONLY when student asks about your phone number (你的电话号码是多少) and you give number 1358679042. "
+                "ABSOLUTE RULE: Do NOT ask '你也是老师吗？' when talking about your English name Emily. Do NOT ask '你叫什么名字？' when talking about your English name Emily. Only ask when the EXACT topic condition is met. Each question can only be asked ONCE."
             )})
         # Unit 3: No suggestions; allow only brief reciprocal (same question back once) if natural
         if unit.get('id') == 'unit3':

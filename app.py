@@ -1107,12 +1107,12 @@ def roleplay_turn():
         # Unit 1: Getting Acquainted - predetermined question set
         if unit.get('id') == 'unit1':
             messages.append({ 'role': 'system', 'content': (
-                "UNIT 1 PREDETERMINED QUESTIONS: You may ask these 4 questions ONLY under specific conditions: "
-                "1. '你叫什么名字？' - ONLY ask this AFTER you have shared your own name 李爱, "
-                "2. '你也是老师吗？' - ONLY ask this AFTER you have shared that you are a teacher, "
-                "3. '你的朋友叫什么？' - ONLY ask this AFTER you have told students that your friend's name is 高山, "
-                "4. '你的电话号码是什么？' - ONLY ask this AFTER you have told students your phone number. "
-                "Each question can only be asked ONCE. You can ask a maximum of 4 questions total. Do NOT ask questions unless the specific condition has been met first."
+                "UNIT 1 PREDETERMINED QUESTIONS: You MUST ask these 4 questions IMMEDIATELY after specific conditions are met: "
+                "1. '你叫什么名字？' - Ask this IMMEDIATELY after you share your own name 李爱 in your response, "
+                "2. '你也是老师吗？' - Ask this IMMEDIATELY after you share that you are a teacher in your response, "
+                "3. '你的朋友叫什么？' - Ask this IMMEDIATELY after you tell students that your friend's name is 高山 in your response, "
+                "4. '你的电话号码是什么？' - Ask this IMMEDIATELY after you tell students your phone number in your response. "
+                "Each question can only be asked ONCE. When a condition is met in your response, you MUST include the corresponding question in that same response. Do not wait for the next turn - ask immediately."
             )})
         # Unit 3: No suggestions; allow only brief reciprocal (same question back once) if natural
         if unit.get('id') == 'unit3':

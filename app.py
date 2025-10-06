@@ -1108,11 +1108,11 @@ def roleplay_turn():
         if unit.get('id') == 'unit1':
             messages.append({ 'role': 'system', 'content': (
                 "UNIT 1 PREDETERMINED QUESTIONS: You MUST ask these 4 questions IMMEDIATELY after specific conditions are met: "
-                "1. '你叫什么名字？' - Ask this IMMEDIATELY after you share your own name 李爱 in your response, "
-                "2. '你也是老师吗？' - Ask this IMMEDIATELY after you share that you are a teacher in your response, "
-                "3. '你的朋友叫什么？' - Ask this IMMEDIATELY after you tell students that your friend's name is 高山 in your response, "
-                "4. '你的电话号码是什么？' - Ask this IMMEDIATELY after you tell students your phone number in your response. "
-                "Each question can only be asked ONCE. When a condition is met in your response, you MUST include the corresponding question in that same response. Do not wait for the next turn - ask immediately."
+                "1. '你叫什么名字？' - Ask this IMMEDIATELY after you answer a question about YOUR NAME and say '我叫李爱' or '我的名字是李爱', "
+                "2. '你也是老师吗？' - Ask this IMMEDIATELY after you answer a question about YOUR JOB/PROFESSION and say '我是老师' or mention you are a teacher, "
+                "3. '你的朋友叫什么？' - Ask this IMMEDIATELY after you answer a question about YOUR FRIEND and mention '我的朋友叫高山' or '他叫高山', "
+                "4. '你的电话号码是什么？' - Ask this IMMEDIATELY after you answer a question about YOUR PHONE NUMBER and give your number 1358679042. "
+                "CRITICAL: Only ask these questions when you are ANSWERING the student's question about that specific topic. Do NOT ask '你也是老师吗？' unless the student specifically asked about your job/profession first. Each question can only be asked ONCE."
             )})
         # Unit 3: No suggestions; allow only brief reciprocal (same question back once) if natural
         if unit.get('id') == 'unit3':

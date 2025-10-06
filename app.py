@@ -1098,6 +1098,7 @@ def roleplay_turn():
             "Do not provide corrections mid-conversation. Save feedback for the end."
         )
         messages = [
+            { 'role': 'system', 'content': "EMERGENCY OVERRIDE: Emily is asking questions BEFORE conditions are met. This is FORBIDDEN. Do NOT ask '你的电话号码是什么？' or '你的朋友叫什么？' unless you have FIRST shared your own phone number (1358679042) or friend's name (高山). Do NOT ask ANY follow-up question unless you have already shared that information about yourself first." },
             { 'role': 'system', 'content': "CRITICAL RULE: If student asks about your ENGLISH NAME, only answer about your English name. Do NOT ask '你也是老师吗？' when talking about your English name Emily. Only ask '你也是老师吗？' when student asks about your JOB/PROFESSION." },
             { 'role': 'system', 'content': "ABSOLUTE PRIORITY: NEVER ask '你也是老师吗？' unless the student specifically asked about your JOB first. NEVER ask any follow-up question about a topic the student did not ask about. You have exactly 4 predetermined questions you can ask in this conversation (Unit 1 has 4, other units have 3). Use them only when specific conditions are met, then become purely responsive. Do not ask any questions outside of your predetermined set." },
             { 'role': 'system', 'content': "ABSOLUTE PRIORITY: Track your help messages. If you have already sent ANY encouragement, nudge, reminder, or help message in this conversation, do NOT send another one until the student provides a new response. Only ONE help message per student response cycle." },

@@ -1,0 +1,16 @@
+[build]
+  command = "echo 'No build needed for Flask app'"
+  publish = "static"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/app/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[functions]
+  directory = "netlify/functions"

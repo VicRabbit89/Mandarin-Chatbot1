@@ -1369,13 +1369,21 @@ def roleplay_feedback():
                 convo.append(f"{r}: {c}")
         transcript = "\n".join(convo[-30:])  # last 30 turns max
 
+        # Create unit-specific feedback guidance
+        unit_targets = {
+            'unit1': "(name, surname, English name, profession, phone number, how are you, height/looks, friend info)",
+            'unit2': "(family members, family size, ages, occupations, siblings, parents)",
+            'unit3': "(daily schedule, wake-up time, classes, weekend activities, time expressions)"
+        }
+        unit_guidance = unit_targets.get(unit.get('id', ''), f"topics from {unit.get('title', 'this unit')}")
+        
         sys = {
             'role': 'system',
             'content': (
                 "You are Emily (李爱), a supportive Mandarin teacher for beginners. "
                 "Provide END-OF-CONVERSATION feedback only. "
                 "Write in English, but include short Chinese examples with pinyin in parentheses where helpful. "
-                "Keep feedback concise and encouraging. Focus on: (1) grammar accuracy with simple fixes, (2) pronunciation notes for tones/initials, (3) 2-3 suggested practice sentences relevant to Unit 1 targets (name, surname, English name, profession, phone number, how are you, height/looks, friend info). "
+                f"Keep feedback concise and encouraging. Focus on: (1) grammar accuracy with simple fixes, (2) pronunciation notes for tones/initials, (3) 2-3 suggested practice sentences relevant to {unit_guidance}. "
                 "Do NOT list every minor issue; prioritize the most helpful tips for a beginner."
             )
         }

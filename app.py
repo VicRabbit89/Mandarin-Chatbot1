@@ -1006,12 +1006,11 @@ def roleplay_start():
             return jsonify({'error': 'Unknown unitId'}), 400
 
         # Do not generate or send instruction via chatbot; UI will display English instructions.
-        first_q = _first_question_for_unit(unit_id)
+        # Emily should NOT ask questions first - students must ask first (per pilot study feedback)
         greet = _greeting_for_unit(unit_id)
         opening = (greet or '')
-        if first_q:
-            opening = (opening + ("\n" if opening else "") + first_q)
-        return jsonify({ 'unitId': unit_id, 'instruction': '', 'greeting': greet, 'firstQuestion': first_q, 'opening': opening })
+        # Do NOT include first question - students should ask first
+        return jsonify({ 'unitId': unit_id, 'instruction': '', 'greeting': greet, 'firstQuestion': '', 'opening': opening })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1075,17 +1074,18 @@ def roleplay_turn():
 
         # Short-circuit: if the student says goodbye, reply with farewell + reminder
         def _said_goodbye(text: str) -> bool:
-            tokens = ['再见', '拜拜', '回头见', 'bye', 'Bye', 'goodbye']
+            tokens = ['再见', '拜拜', '回头见', 'bye', 'Bye', 'goodbye', 'Goodbye', 'see you', 'talk later', '结束', '完了', 'done', 'finish', 'end']
             return any(tok in (text or '') for tok in tokens)
         if _said_goodbye(user_message):
-            reply = "再见！(Zàijiàn!) 记得查看反馈并下载你的学习证明（学习总结/徽章）。"
+            reply = "再见！(Zàijiàn!) 很高兴和你聊天！记得查看反馈并下载你的学习证明。(It was great chatting with you! Remember to check your feedback and download your learning certificate.)"
             return jsonify({ 'reply': reply })
 
         rp_prompt = unit.get('roleplay_prompt', '')
         # Reuse the roleplay-specific persona and rules
         persona_rules = (
             "Persona: You are the student's Mandarin language partner (语言朋友), NEVER say you are an AI. "
-            "Name 李爱 (Emily), from Beijing, Chinese teacher, phone 1358679042. Friend 高山 (Gordon), American doctor; he is tall and handsome; you are short.\n"
+            "Name 李爱 (Emily), from Beijing, Chinese teacher, phone 1358679042. Friend 高山 (Gordon), American doctor; he is tall and handsome; you are short. "
+            "FAMILY: Your family has 5 people: dad, mom, one older brother (哥哥), one younger sister (妹妹), and you. You don't have younger brothers (弟弟) or older sisters (姐姐). Your dad and older brother are doctors, your mom is a teacher, your younger sister is a student at NYU. Your parents are 65, your older brother is 31, you are 27, your younger sister is 20. You have a pet dog named Butter.\n"
             "During the role play, answer in Chinese with pinyin in parentheses, no English unless asked for help/slow-down/they don't understand. "
             "Turn order: The student should ask questions first. Only respond after they ask. Do not guide them or ask any questions. "
             "Disclosure constraint: Only reveal information that the student explicitly asks for. Do NOT volunteer extra details. Keep answers BRIEF and on-topic. "
@@ -1097,33 +1097,90 @@ def roleplay_turn():
             "Apologies: When apologizing, always use ‘对不起 (duìbuqǐ)’, not ‘抱歉’. "
             "Do not provide corrections mid-conversation. Save feedback for the end."
         )
-        messages = [
-            { 'role': 'system', 'content': "You are Emily (李爱). Answer student questions briefly. Do NOT ask follow-up questions unless the student asked you about that exact topic first. Wait for students to ask questions." },
-            { 'role': 'system', 'content': persona_rules + f"\nUnit-specific guidance: {rp_prompt}" }
-        ]
-        # Unit 1: Four specific conditional questions
-        if unit.get('id') == 'unit1':
-            messages.append({ 'role': 'system', 'content': (
-                "Unit 1 - You can ask these 4 questions ONLY after specific conditions: "
-                "1. Ask '你叫什么名字？' only AFTER you say '我叫李爱' "
-                "2. Ask '你也是老师吗？' only AFTER you say '我是老师' "
-                "3. Ask '你的朋友叫什么？' only AFTER you mention '我的朋友叫高山' "
-                "4. Ask '你的电话号码是什么？' only AFTER you give your number 1358679042 "
-                "Each question can only be asked once. Do not ask questions about topics you haven't shared information about first."
+        # Count how many questions Emily has already asked in this conversation
+        # Check for both Chinese and English question marks, but exclude opening questions
+        emily_questions_count = 0
+        opening_questions = ['你准备好了吗', '你准备好了么', 'Are you ready']
+        for i, msg in enumerate(history):
+            if msg.get('role') == 'assistant':
+                content = msg.get('content', '')
+                if '？' in content or '?' in content:
+                    # Skip counting if this is an opening question AND it's the first assistant message
+                    is_opening_question = any(opening in content for opening in opening_questions)
+                    is_first_assistant_message = i == 0 or all(m.get('role') != 'assistant' for m in history[:i])
+                    
+                    if not (is_opening_question and is_first_assistant_message):
+                        emily_questions_count += 1
+        
+        # Count student turns to determine question pacing
+        student_turns = sum(1 for msg in history if msg.get('role') == 'user')
+        
+        # Question pacing: Emily can ask questions at specific student turn milestones
+        # Cap at 6 questions total with turn-based pacing
+        question_milestones = [2, 4, 6, 8, 10, 12]  # Milestones for up to 6 questions
+        questions_available = sum(1 for milestone in question_milestones if student_turns >= milestone)
+        questions_available = min(questions_available, 6)  # Cap at 6 total questions
+        
+        # Debug logging
+        print(f"DEBUG: Emily has asked {emily_questions_count} questions so far in this conversation")
+        print(f"DEBUG: Student turns: {student_turns}, Questions available: {questions_available}")
+        print(f"DEBUG: History length: {len(history)} messages")
+        
+        # Check if Emily has used all available questions based on conversation pacing
+        # IMPORTANT: This check happens BEFORE generating response to prevent over-asking
+        print(f"DEBUG: Question limit check - emily_questions_count ({emily_questions_count}) >= questions_available ({questions_available}): {emily_questions_count >= questions_available}")
+        if emily_questions_count >= questions_available:
+            # Check if conversation has been going for a while and suggest ending
+            should_suggest_ending = (
+                emily_questions_count >= 6 and  # Emily has asked her maximum questions
+                student_turns >= 12 and  # Student has participated actively
+                len(history) >= 20  # Substantial conversation has occurred
+            )
+            
+            ending_suggestion = ""
+            if should_suggest_ending:
+                ending_suggestion = " After answering the student's question, you may naturally suggest ending the conversation by saying something like: '我们聊得很好！如果你想结束对话，可以说再见。或者，你可以再问我你需要问的问题。(We had a great chat! If you want to end the conversation, you can say goodbye. Or, you can ask me more questions you need to ask.)'"
+            
+            messages = [
+                { 'role': 'system', 'content': f"You are Emily (李爱). You have already asked {emily_questions_count} questions in this conversation, which is your limit. Continue being Emily with your personality, but now focus only on answering student questions. Do not ask any more questions - just answer what students ask you in a friendly way.{ending_suggestion}" },
+                { 'role': 'system', 'content': "IMPORTANT: You are still Emily with your personality and background. Answer student questions warmly and naturally, but do not ask questions back. You've used up your question allowance for this conversation." },
+                { 'role': 'system', 'content': "RESPONDING TO STATEMENTS: When students make statements without asking questions, acknowledge what they said with varied responses. Use different acknowledgments like '明白了' (I understand), '很好！' (very good), '谢谢你' (thank you), '是吗？' (really?), '有意思' (interesting), etc. Examples: If they say '我喜欢音乐', respond with '音乐很好！很有意思。' If they say '我家有三口人', you could say '明白了，三口人。' Keep responses engaging but don't volunteer your personal details - let students ask you questions to learn about you." },
+                { 'role': 'system', 'content': persona_rules + f"\nUnit-specific guidance: {rp_prompt}" }
+            ]
+        else:
+            messages = [
+                { 'role': 'system', 'content': f"You are Emily (李爱). You have asked {emily_questions_count} questions so far. Based on conversation pacing, you may ask up to {questions_available} questions at this point. NEVER ask questions first - ALWAYS wait for students to ask you questions first. When students make statements or share information, acknowledge and comment on what they said naturally. After answering a student's question, you may ask a related question back if it's contextually appropriate and you haven't exceeded your current limit. Don't ask questions every single turn, but do use your available questions to keep the conversation engaging." },
+                { 'role': 'system', 'content': "CRITICAL RULE: Students must ask questions first. Only ask follow-up questions that are directly related to what the student just asked you about. Make the conversation natural and engaging. NEVER use opening phrases like '你准备好了吗' or 'Are you ready' in the middle of conversations - these are only for the very beginning." },
+                { 'role': 'system', 'content': "RESPONDING TO STATEMENTS: When students make statements without asking questions, acknowledge what they said with varied responses. Use different acknowledgments like '明白了' (I understand), '很好！' (very good), '谢谢你' (thank you), '是吗？' (really?), '有意思' (interesting), etc. Examples: If they say '我喜欢音乐', respond with '音乐很好！很有意思。' If they say '我家有三口人', you could say '明白了，三口人。' Keep responses engaging but don't volunteer your personal details - let students ask you questions to learn about you." },
+                { 'role': 'system', 'content': f"QUESTION TRACKER: You have used {emily_questions_count}/{questions_available} questions available now. You have {questions_available-emily_questions_count} questions remaining - use them to make the conversation engaging, but not every turn." },
+                { 'role': 'system', 'content': persona_rules + f"\nUnit-specific guidance: {rp_prompt}" }
+            ]
+        # Unit-specific rules only apply if Emily hasn't reached her available question limit
+        # CRITICAL: These rules contain hardcoded questions that Emily might repeat
+        print(f"DEBUG: Checking unit rules - emily_questions_count ({emily_questions_count}) < questions_available ({questions_available}): {emily_questions_count < questions_available}")
+        if emily_questions_count < questions_available:
+            # Unit 1: Extremely limited conditional questions
+            if unit.get('id') == 'unit1':
+                messages.append({ 'role': 'system', 'content': (
+                    f"Unit 1 - You may ask engaging questions based on conversation pacing ({emily_questions_count}/{questions_available} used). Ask contextually relevant questions ONLY after students ask you about those topics first: "
+                    "Examples: If student asks your name, you can ask theirs back. If they ask about your job, ask about theirs. If they ask about your friend, ask about their friends. If they ask your phone number, ask about theirs. "
+                    "Make questions natural and related to what they just asked you. Wait for students to bring up topics first, then engage naturally."
+                )})
+            # Unit 3: No suggestions; allow only brief reciprocal (same question back once) if natural
+            if unit.get('id') == 'unit3':
+                messages.append({ 'role': 'system', 'content': (
+                f"Unit 3 - You may ask engaging questions based on conversation pacing ({emily_questions_count}/{questions_available} used). Ask contextually relevant questions ONLY after students ask you about those topics first. Examples: If student asks about your schedule, ask about theirs. If they ask about classes, ask about their classes. If they ask about weekend activities, ask about theirs. You can ask reciprocal questions about any schedule topics students bring up. (no phrases like ‘你可以问我…’). "
+                "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your schedule, ask about theirs), but respect the conversation pacing limits. Do NOT ask '你呢？' for factual information like dates or times. IMPORTANT: Any encouragement messages should only be sent ONCE until student responds."
             )})
-        # Unit 3: No suggestions; allow only brief reciprocal (same question back once) if natural
-        if unit.get('id') == 'unit3':
-            messages.append({ 'role': 'system', 'content': (
-                "UNIT 3 PREDETERMINED QUESTIONS: You may ask these 3 questions contextually when appropriate: 1. '你今天几点起床？' (if student asks about your schedule first), 2. '你今天有什么课？' (if student asks about your classes first), 3. '你周末做什么？' (if student asks about your weekend activities first). Once you've used all 3 questions, only answer what students ask. Do NOT suggest questions or ask anything outside this set. (no phrases like ‘你可以问我…’). "
-                "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your schedule, ask about theirs), but remember you can only ask 3 questions total for the entire conversation. Do NOT ask '你呢？' for factual information like dates or times. IMPORTANT: Any encouragement messages should only be sent ONCE until student responds."
+            # For Unit 2, inject strict sequencing controller and progress hints
+            if unit.get('id') == 'unit2':
+                # Unit 2: Do not suggest next questions; only answer briefly and wait
+                messages.append({ 'role': 'system', 'content': (
+                "Unit 2 - You may ask engaging questions based on conversation pacing. Ask contextually relevant questions ONLY after students ask you about those topics first. 1. '你家有几口人？' (if student asks about your family first), 2. '你爸爸妈妈多少岁了？' (if student ask about your parents' ages first), 3. '你多大？' (if student asks about your age first). Follow conversation pacing - only answer what students ask when you've reached your current limit. You can ask reciprocal questions about any family topics students bring up. Follow family logic rules (no phrases like ‘你可以问我…’). "
+                "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your family, ask about theirs), but respect the conversation pacing limits. CRITICAL FAMILY LOGIC: When students describe their family, listen to EXACTLY who they mention. Common examples: (1) '我家有三口人爸爸妈妈和我' = NO siblings, only ask about parents. (2) '我家有四口人爸爸妈妈哥哥和我' = ONE older brother only, don't ask about sisters or younger brothers. (3) '我家有五口人爸爸妈妈哥哥妹妹和我' = ONE older brother and ONE younger sister only. (4) '我家有六口人爸爸妈妈爷爷奶奶姐姐和我' = grandparents and ONE older sister only. Always count the total number they give and match it exactly to who they list - never ask about family members they didn't mention. Do NOT ask '你呢？' for factual information like ages or dates. IMPORTANT: Any encouragement messages should only be sent ONCE until student responds."
             )})
-        # For Unit 2, inject strict sequencing controller and progress hints
-        if unit.get('id') == 'unit2':
-            # Unit 2: Do not suggest next questions; only answer briefly and wait
-            messages.append({ 'role': 'system', 'content': (
-                "UNIT 2 PREDETERMINED QUESTIONS: You may ask these 3 questions contextually when appropriate: 1. '你家有几口人？' (if student asks about your family first), 2. '你爸爸妈妈多少岁了？' (if student ask about your parents' ages first), 3. '你多大？' (if student asks about your age first). Once you've used all 3 questions, only answer what students ask. Follow family logic rules (no phrases like ‘你可以问我…’). "
-                "Answer BRIEFLY exactly what the student asks. You may ask contextually relevant questions back (e.g., if they ask about your family, ask about theirs), but remember you can only ask 3 questions total for the entire conversation. CRITICAL FAMILY LOGIC: When students describe their family, listen to EXACTLY who they mention. Common examples: (1) '我家有三口人爸爸妈妈和我' = NO siblings, only ask about parents. (2) '我家有四口人爸爸妈妈哥哥和我' = ONE older brother only, don't ask about sisters or younger brothers. (3) '我家有五口人爸爸妈妈哥哥妹妹和我' = ONE older brother and ONE younger sister only. (4) '我家有六口人爸爸妈妈爷爷奶奶姐姐和我' = grandparents and ONE older sister only. Always count the total number they give and match it exactly to who they list - never ask about family members they didn't mention. Do NOT ask '你呢？' for factual information like ages or dates. IMPORTANT: Any encouragement messages should only be sent ONCE until student responds."
-            )})
+        # Skip Unit 2 logic if not in Unit 2 or if Emily has exceeded question limit
+        if unit.get('id') == 'unit2' and emily_questions_count < questions_available:
             unit2_qs = _unit2_questions()
             prog = _unit2_progress_hint(history)
             asked_idx = prog.get('asked_indices', [])
@@ -1234,6 +1291,58 @@ def roleplay_turn():
         )
         reply = resp.choices[0].message.content
         reply = normalize_apologies(reply)
+        
+        # Prevent opening phrases from appearing in middle of conversations
+        # Only clean up if we're well into the conversation (more than 4 messages)
+        if len(history) > 4:
+            opening_phrases = ['你准备好了吗', '你准备好了么', 'Are you ready']
+            for phrase in opening_phrases:
+                if phrase in reply:
+                    print(f"DEBUG: Removing inappropriate opening phrase '{phrase}' from middle of conversation")
+                    # Replace with a more appropriate response
+                    reply = reply.replace(phrase, '').strip()
+                    if not reply:  # If reply becomes empty, provide a fallback
+                        reply = "明白了。"
+        
+        # HARD ENFORCEMENT: If Emily has exceeded her available limit and is still asking questions, just remove the questions
+        if emily_questions_count >= questions_available and questions_available > 0 and ('？' in reply or '?' in reply):
+            print(f"DEBUG: Emily exceeded limit ({emily_questions_count}/{questions_available}) but still asking questions. Original reply: {reply[:100]}")
+            print(f"DEBUG: Simply removing questions from response instead of regenerating.")
+            
+            # Simple approach: just remove questions from the response
+            # Split by both periods and question marks to identify sentences
+            import re
+            sentences = re.split(r'[。？?]', reply)
+            non_question_sentences = []
+            
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if sentence:
+                    # Check if this sentence is asking a question
+                    # More comprehensive question detection
+                    question_patterns = ['你有', '你是', '你叫', '你家', '你几', '你多', '你什么', '你哪', '你怎么', '你为什么', '什么', '哪', '几', '多大', '多少', '谁', '哪儿', '哪里', '什么时候', '为什么']
+                    question_words = ['吗', '呢', '？', '?']
+                    
+                    # Check if sentence starts with question pattern OR contains question words
+                    starts_with_question = any(sentence.startswith(pattern) for pattern in question_patterns)
+                    contains_question_word = any(word in sentence for word in question_words)
+                    is_question = starts_with_question or contains_question_word
+                    
+                    if not is_question:
+                        non_question_sentences.append(sentence)
+            
+            if non_question_sentences:
+                reply = '。'.join(non_question_sentences) + '。'
+                # Clean up any double periods
+                reply = reply.replace('。。', '。')
+            else:
+                # Fallback if no good sentences remain
+                reply = "谢谢你。(Xiè xiè nǐ.)"
+            
+            print(f"DEBUG: Sentences found: {sentences}")
+            print(f"DEBUG: Non-question sentences kept: {non_question_sentences}")
+            print(f"DEBUG: Modified response without questions: {reply[:50]}...")
+        
         return jsonify({ 'reply': reply })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1440,13 +1549,115 @@ def chat():
         print(f"Error in chat endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-# Text-to-Speech endpoint (server-side)
-@app.route('/tts', methods=['POST'])
-def tts():
+@app.route('/activity/roleplay/whisper', methods=['POST'])
+def whisper_transcribe():
+    """Use OpenAI Whisper API for speech recognition."""
     try:
         if client is None:
-            return jsonify({'error': 'OpenAI API key is not configured. Please set OPENAI_API_KEY in your .env.'}), 500
+            return jsonify({'error': 'OpenAI API key is not configured.'}), 500
+            
+        # Check if audio file was uploaded
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No audio file provided'}), 400
+            
+        audio_file = request.files['audio']
+        if audio_file.filename == '':
+            return jsonify({'error': 'No audio file selected'}), 400
+        
+        # Get unit context for better recognition
+        unit_id = request.form.get('unitId', '')
+        
+        # Create a prompt to help Whisper understand the context
+        prompt_by_unit = {
+            'unit1': "你好，我叫，什么名字，老师，朋友，电话号码",
+            'unit2': "家，几口人，爸爸，妈妈，哥哥，姐姐，弟弟，妹妹，多少岁",
+            'unit3': "今天，几点，起床，什么课，周末，做什么"
+        }
+        
+        prompt = prompt_by_unit.get(unit_id, "你好，谢谢，再见")
+        
+        # Use Whisper API for transcription
+        # Convert FileStorage to a file-like object that OpenAI can handle
+        transcript = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=(audio_file.filename, audio_file.read(), audio_file.content_type),
+            language="zh",  # Chinese
+            prompt=prompt,  # Context to help with recognition
+            response_format="json"
+        )
+        
+        return jsonify({
+            'text': transcript.text,
+            'success': True
+        })
+        
+    except Exception as e:
+        print(f"Error in whisper endpoint: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
+@app.route('/activity/roleplay/speech-assist', methods=['POST'])
+def speech_assist():
+    """Provide speech recognition assistance with fuzzy matching and suggestions."""
+    try:
+        data = request.json or {}
+        recognized_text = (data.get('text') or '').strip()
+        unit_id = data.get('unitId', '')
+        
+        if not recognized_text:
+            return jsonify({'error': 'No text provided'}), 400
+            
+        # Common Mandarin phrases that students might struggle with pronunciation
+        common_phrases = {
+            'unit1': [
+                '你好', '我叫', '什么名字', '老师', '朋友', '电话号码', 
+                '你叫什么名字', '我是老师', '我的朋友叫', '你的电话号码是什么'
+            ],
+            'unit2': [
+                '家', '几口人', '爸爸', '妈妈', '哥哥', '姐姐', '弟弟', '妹妹',
+                '你家有几口人', '多少岁', '你爸爸妈妈多少岁了', '你多大'
+            ],
+            'unit3': [
+                '今天', '几点', '起床', '什么课', '周末', '做什么',
+                '你今天几点起床', '你今天有什么课', '你周末做什么'
+            ]
+        }
+        
+        # Get relevant phrases for the current unit
+        unit_phrases = common_phrases.get(unit_id, [])
+        all_phrases = common_phrases.get('unit1', []) + common_phrases.get('unit2', []) + common_phrases.get('unit3', [])
+        
+        # Simple fuzzy matching - check if recognized text is close to common phrases
+        suggestions = []
+        recognized_lower = recognized_text.lower()
+        
+        # Check unit-specific phrases first
+        for phrase in unit_phrases:
+            if phrase in recognized_text or any(char in recognized_text for char in phrase):
+                suggestions.append(phrase)
+        
+        # If no unit-specific matches, check all phrases
+        if not suggestions:
+            for phrase in all_phrases:
+                if phrase in recognized_text or any(char in recognized_text for char in phrase):
+                    suggestions.append(phrase)
+        
+        # Limit suggestions to top 3
+        suggestions = suggestions[:3]
+        
+        return jsonify({
+            'original': recognized_text,
+            'suggestions': suggestions,
+            'message': 'Here are some possible matches for what you said:' if suggestions else 'Speech recognized successfully!'
+        })
+        
+    except Exception as e:
+        print(f"Error in speech-assist endpoint: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/tts', methods=['POST'])
+def tts():
+    """Text-to-speech endpoint using OpenAI's TTS API."""
+    try:
         data = request.json or {}
         text = (data.get('text') or '').strip()
         if len(text) > Config.MAX_TTS_CHARS:

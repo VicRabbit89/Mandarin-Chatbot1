@@ -30,11 +30,17 @@
       <div id="transcript" class="border rounded p-3 h-80 overflow-y-auto bg-gray-50 mb-3"></div>
       <div class="flex items-center gap-2 mb-2">
         <input id="text-input" type="text" class="flex-1 p-2 border rounded" placeholder="Type your line in Chinese or English..." />
-        <button id="mic" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">🎤 Voice</button>
+        <button id="whisper-mic" class="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700">🎤 Voice</button>
         <button id="send" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Type</button>
+      </div>
+      <!-- Speech recognition suggestions -->
+      <div id="speech-suggestions" class="hidden mb-2 p-3 bg-yellow-50 border border-yellow-200 rounded">
+        <div class="text-sm text-gray-700 mb-2">Did you mean one of these?</div>
+        <div id="suggestion-buttons" class="flex flex-wrap gap-2"></div>
       </div>
       <div class="flex items-center gap-3 text-sm text-gray-600">
         <span id="error" class="text-red-700"></span>
+        <span id="speech-status" class="text-blue-600"></span>
       </div>
       <div class="mt-3 flex items-center gap-3">
         <button id="finish" class="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 text-sm">Finish & Feedback</button>
@@ -61,8 +67,9 @@
             'Instructions (English):\n' +
             '- Student asks the questions first.\n' +
             '- Emily answers only what you ask (no extra info).\n' +
+            '- Use Voice button for speech recognition (powered by OpenAI Whisper)\n' +
             '- Emily speaks Chinese with pinyin; English only on request.\n' +
-            '- Suggested first question: Ask Emily’s Chinese name.\n' +
+            '- Suggested first question: Ask Emily Chinese name.\n' +
             '- Record your conversation and write down Emily’s responses in Chinese in your handout.'
           ),
           'unit2': (
@@ -70,6 +77,7 @@
             '- Student asks the questions first.\n' +
             '- Emily answers only what you ask (no extra info).\n' +
             '- Stay on Unit 2 topics (family size, members, siblings, pets, ages).\n' +
+            '- Use Voice button for speech recognition (powered by OpenAI Whisper)\n' +
             '- Emily speaks Chinese with pinyin; English only on request.\n' +
             '- Suggested first question: How many people are in your family? Who are they?\n' +
             '- Record your conversation and write down Emily’s responses in Chinese in your handout.'
@@ -79,6 +87,7 @@
             '- Student asks the questions first.\n' +
             '- Emily answers only what you ask (no extra info).\n' +
             '- Focus on schedule (days, dates, classes, activities, times).\n' +
+            '- Use Voice button for speech recognition (powered by OpenAI Whisper)\n' +
             '- Emily speaks Chinese with pinyin; English only on request.\n' +
             '- Suggested first question: What classes/activities do you have today?\n' +
             '- Record your conversation and write down Emily’s responses in Chinese in your handout.'
@@ -99,12 +108,33 @@
     let inactivityTimer = null;
     function scheduleInactivityPrompt(turnId) {
       clearTimeout(inactivityTimer);
-      // After assistant speaks, wait 90 seconds for the student; then show one-time help for THIS turn
+      // After assistant speaks, wait 90 seconds for the student; then show help ONLY if truly inactive
       inactivityTimer = setTimeout(() => {
-        // Only show help if we haven't shown it since the last student response
+        // Only show help if we haven't shown it since the last student response AND student hasn't responded at all
         if (state.helpShownSinceLastResponse) return;
-        // Mark that we've shown help and insert an assistance line (no autoplay)
-        const promptLine = "你需要帮助吗？(Nǐ xūyào bāngzhù ma?) 要不要我慢一点？(Yào bùyào wǒ màn yìdiǎn?) Would you like a hint?";
+        
+        // Check if this is true inactivity (no student responses for 90 seconds)
+        // If student has been responding (even just answers), don't show help
+        const lastUserMessage = state.history.slice().reverse().find(msg => msg.role === 'user');
+        const lastAssistantMessage = state.history.slice().reverse().find(msg => msg.role === 'assistant');
+        
+        // Only show help if there's been no user activity after the last assistant message
+        if (lastUserMessage && lastAssistantMessage) {
+          const userIndex = state.history.lastIndexOf(lastUserMessage);
+          const assistantIndex = state.history.lastIndexOf(lastAssistantMessage);
+          if (userIndex > assistantIndex) {
+            // Student responded after assistant, so they're active - don't show help
+            return;
+          }
+        }
+        
+        // Mark that we've shown help and insert unit-specific question suggestions (no autoplay)
+        const unitSuggestions = {
+          'unit1': "你可以问我我的名字、我的工作、我的朋友高山、我的电话号码，或者我忙不忙。(Nǐ kěyǐ wèn wǒ wǒ de míngzì, wǒ de gōngzuò, wǒ de péngyǒu Gāoshān, wǒ de diànhuà hàomǎ, huòzhě wǒ máng bù máng.) You can ask me about my name, my job, my friend Gordon, my phone number, or if I'm busy.",
+          'unit2': "你可以问我我的家人、我家有几口人、我爸爸妈妈多少岁、我有没有兄弟姐妹或者我的家人的工作。(Nǐ kěyǐ wèn wǒ wǒ de jiārén, wǒ jiā yǒu jǐ kǒu rén, wǒ bàba māma duōshao suì, wǒ yǒu méiyǒu xiōngdì jiěmèi huòzhě wǒ de jiārén de gōngzuò.) You can ask me about my family, how many people are in my family, how old my parents are, if I have siblings, or about my family members' jobs.",
+          'unit3': "你可以问我今天的课程、我几点起床、我周末做什么或者我的时间安排。(Nǐ kěyǐ wèn wǒ jīntiān de kèchéng, wǒ jǐ diǎn qǐchuáng, wǒ zhōumò zuò shénme huòzhě wǒ de shíjiān ānpái.) You can ask me about today's classes, what time I wake up, what I do on weekends, or my schedule."
+        };
+        const promptLine = unitSuggestions[unitId] || "你可以问我关于这个单元的话题。(Nǐ kěyǐ wèn wǒ guānyú zhège dānyuán de huàtí.) You can ask me about topics from this unit.";
         addLine('assistant', promptLine, { autoplay: false });
         state.history.push({ role:'assistant', content: promptLine });
         state.helpShownSinceLastResponse = true;
@@ -349,7 +379,14 @@
 
     async function sendText() {
       const input = document.getElementById('text-input');
-      const message = input.value.trim(); if (!message) return; input.value='';
+      const message = input.value.trim(); if (!message) return; 
+      
+      // Hide suggestions and reset input styling
+      hideSuggestions();
+      input.value='';
+      input.style.fontStyle = 'normal';
+      input.style.color = 'black';
+      
       addLine('user', message); state.history.push({ role:'user', content: message });
       // Reset help flag when student responds
       state.helpShownSinceLastResponse = false;
@@ -361,83 +398,99 @@
 
     document.getElementById('send').addEventListener('click', sendText);
     document.getElementById('text-input').addEventListener('keyup', (e)=>{ if (e.key==='Enter') sendText(); });
+    
+    // Hide suggestions when user starts typing manually
+    document.getElementById('text-input').addEventListener('input', (e) => {
+      // Only hide if the user is manually typing (not from speech recognition)
+      if (e.target.style.fontStyle !== 'italic') {
+        hideSuggestions();
+      }
+    });
 
     // Removed global toggle; per-bubble toggle is added inside each assistant message
 
-    // Very simple voice input (Web Speech API if available)
-    const micBtn = document.getElementById('mic');
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const rec = new SR();
-      rec.lang = 'zh-CN';
-      rec.interimResults = false; // we only want final chunks
-      // Try to keep recognition going until student clicks stop
-      try { rec.continuous = true; } catch {}
-      let isRecording = false;
-      let recognitionBuffer = '';
-      let isFinalizing = false;
+    // Whisper API voice input (more accurate for Mandarin)
+    const whisperMicBtn = document.getElementById('whisper-mic');
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isWhisperRecording = false;
 
-      function finalizeAndSend() {
-        if (isFinalizing) return;
-        isFinalizing = true;
-        const text = (recognitionBuffer || '').trim();
-        recognitionBuffer = '';
-        micBtn.textContent = '🎤 Voice (click to record)';
-        if (text) {
-          const input = document.getElementById('text-input');
-          input.value = text;
-          // Send immediately
-          sendText();
-        }
-        setTimeout(()=>{ isFinalizing = false; }, 50);
-      }
-
-      micBtn.onclick = () => {
-        try {
-          if (!isRecording) {
-            isRecording = true;
-            isFinalizing = false;
-            recognitionBuffer = '';
-            rec.start();
-            micBtn.textContent = '🎤 Recording… Click to stop';
-          } else {
-            isRecording = false;
-            rec.stop();
-            // onstop will call finalizeAndSend()
-          }
-        } catch (e) { document.getElementById('error').textContent='Voice input error'; }
-      };
-
-      rec.onresult = (e) => {
-        try {
-          // Append the latest final result
-          for (let i = e.resultIndex; i < e.results.length; i++) {
-            const res = e.results[i];
-            if (res.isFinal && res[0] && res[0].transcript) {
-              recognitionBuffer += (recognitionBuffer ? ' ' : '') + res[0].transcript;
-            }
-          }
-        } catch {}
-      };
-
-      rec.onend = () => {
-        // Chrome may auto-stop; if still recording, restart to simulate continuous capture
-        if (isRecording) {
-          try { rec.start(); } catch {}
+    whisperMicBtn.onclick = async () => {
+      try {
+        if (!isWhisperRecording) {
+          // Start recording
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+          
+          mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+          };
+          
+          mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            await sendToWhisper(audioBlob);
+            
+            // Stop all tracks to release microphone
+            stream.getTracks().forEach(track => track.stop());
+          };
+          
+          mediaRecorder.start();
+          isWhisperRecording = true;
+          whisperMicBtn.textContent = '🛑 Stop Whisper';
+          whisperMicBtn.className = 'bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700';
+          document.getElementById('speech-status').textContent = 'Recording with Whisper...';
+          
         } else {
-          finalizeAndSend();
+          // Stop recording
+          mediaRecorder.stop();
+          isWhisperRecording = false;
+          whisperMicBtn.textContent = '🎤 Whisper';
+          whisperMicBtn.className = 'bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700';
+          document.getElementById('speech-status').textContent = 'Processing...';
         }
-      };
+      } catch (e) {
+        document.getElementById('error').textContent = 'Microphone access denied or not available';
+        console.error('Whisper recording error:', e);
+      }
+    };
 
-      rec.onstop = () => {
-        // Explicit stop from the button — finalize and send
-        finalizeAndSend();
-      };
-
-      rec.onerror = () => { document.getElementById('error').textContent='Voice input error'; };
-    } else {
-      micBtn.disabled = true; micBtn.title = 'Voice input not supported in this browser';
+    async function sendToWhisper(audioBlob) {
+      try {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.wav');
+        formData.append('unitId', unitId);
+        
+        const response = await fetch('/activity/roleplay/whisper', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          const input = document.getElementById('text-input');
+          input.value = data.text;
+          input.style.fontStyle = 'normal';
+          input.style.color = 'black';
+          document.getElementById('speech-status').textContent = 'Speech recognized successfully!';
+          
+          // Auto-send the recognized text
+          setTimeout(() => {
+            sendText();
+          }, 500);
+        } else {
+          document.getElementById('error').textContent = data.error || 'Speech recognition failed';
+          document.getElementById('speech-status').textContent = '';
+        }
+      } catch (e) {
+        document.getElementById('error').textContent = 'Error processing speech';
+        document.getElementById('speech-status').textContent = '';
+        console.error('Whisper API error:', e);
+      }
     }
+
+    // Voice input now uses only Whisper API (browser speech recognition removed)
 
     // Reuse TTS from index page if available; otherwise provide minimal version
     let currentAudio = null;
@@ -484,6 +537,93 @@
 
     function pauseTTS() {
       try { if (currentAudio) currentAudio.pause(); } catch {}
+    }
+
+    // Speech recognition suggestion system
+    async function showSpeechSuggestions(recognizedText) {
+      try {
+        document.getElementById('speech-status').textContent = 'Getting suggestions...';
+        
+        const res = await fetch('/activity/roleplay/speech-assist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: recognizedText, unitId })
+        });
+        
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          console.log('Speech assist error:', data.error);
+          return;
+        }
+        
+        if (data.suggestions && data.suggestions.length > 0) {
+          displaySuggestions(data.suggestions, recognizedText);
+        }
+        
+        document.getElementById('speech-status').textContent = '';
+      } catch (e) {
+        console.log('Error getting speech suggestions:', e);
+        document.getElementById('speech-status').textContent = '';
+      }
+    }
+
+    function displaySuggestions(suggestions, originalText) {
+      const suggestionsDiv = document.getElementById('speech-suggestions');
+      const buttonsDiv = document.getElementById('suggestion-buttons');
+      
+      // Clear previous suggestions
+      buttonsDiv.innerHTML = '';
+      
+      // Add suggestion buttons
+      suggestions.forEach(suggestion => {
+        const btn = document.createElement('button');
+        btn.textContent = suggestion;
+        btn.className = 'px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-sm';
+        btn.onclick = () => {
+          const input = document.getElementById('text-input');
+          input.value = suggestion;
+          input.style.fontStyle = 'normal';
+          input.style.color = 'black';
+          hideSuggestions();
+          // Optionally auto-send
+          // sendText();
+        };
+        buttonsDiv.appendChild(btn);
+      });
+      
+      // Add "Use original" button
+      const originalBtn = document.createElement('button');
+      originalBtn.textContent = `Use "${originalText}"`;
+      originalBtn.className = 'px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded text-sm';
+      originalBtn.onclick = () => {
+        const input = document.getElementById('text-input');
+        input.value = originalText;
+        input.style.fontStyle = 'normal';
+        input.style.color = 'black';
+        hideSuggestions();
+      };
+      buttonsDiv.appendChild(originalBtn);
+      
+      // Add "Try again" button
+      const retryBtn = document.createElement('button');
+      retryBtn.textContent = 'Try speaking again';
+      retryBtn.className = 'px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded text-sm';
+      retryBtn.onclick = () => {
+        hideSuggestions();
+        // Clear input and start recording again
+        document.getElementById('text-input').value = '';
+        if (!isRecording) {
+          micBtn.click();
+        }
+      };
+      buttonsDiv.appendChild(retryBtn);
+      
+      // Show suggestions
+      suggestionsDiv.classList.remove('hidden');
+    }
+
+    function hideSuggestions() {
+      document.getElementById('speech-suggestions').classList.add('hidden');
     }
 
     // Auto-start roleplay (fetches and displays introduction line)

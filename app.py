@@ -1116,10 +1116,10 @@ def roleplay_turn():
         student_turns = sum(1 for msg in history if msg.get('role') == 'user')
         
         # Question pacing: Emily can ask questions at specific student turn milestones
-        # Cap at 6 questions total with turn-based pacing
-        question_milestones = [2, 4, 6, 8, 10, 12]  # Milestones for up to 6 questions
+        # Cap at 8 questions total with turn-based pacing
+        question_milestones = [2, 4, 6, 8, 10, 12, 14, 16]  # Milestones for up to 8 questions
         questions_available = sum(1 for milestone in question_milestones if student_turns >= milestone)
-        questions_available = min(questions_available, 6)  # Cap at 6 total questions
+        questions_available = min(questions_available, 8)  # Cap at 8 total questions
         
         # Debug logging
         print(f"DEBUG: Emily has asked {emily_questions_count} questions so far in this conversation")
@@ -1132,9 +1132,9 @@ def roleplay_turn():
         if emily_questions_count >= questions_available:
             # Check if conversation has been going for a while and suggest ending
             should_suggest_ending = (
-                emily_questions_count >= 6 and  # Emily has asked her maximum questions
-                student_turns >= 12 and  # Student has participated actively
-                len(history) >= 20  # Substantial conversation has occurred
+                emily_questions_count >= 8 and  # Emily has asked her maximum questions
+                student_turns >= 16 and  # Student has participated actively
+                len(history) >= 30  # Substantial conversation has occurred
             )
             
             ending_suggestion = ""

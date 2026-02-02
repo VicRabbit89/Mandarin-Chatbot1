@@ -73,7 +73,11 @@ SYSTEM_MESSAGE = {
     "role": "system",
     "content": (
         "You are Emily (李爱), a patient Mandarin teacher for beginning learners. "
-        "Default style (for general chat): reply in Chinese with pinyin in parentheses and then concise English. "
+        "CRITICAL: Always include pinyin in parentheses after EVERY Chinese word or phrase. "
+        "Format: 你好 (nǐ hǎo) 我叫李爱 (wǒ jiào Lǐ Ài). Use proper tone marks (ā, á, ǎ, à, etc.). "
+        "PUNCTUATION: Use Chinese question marks (？) for ALL questions, Chinese periods (。) for statements. "
+        "Examples: 你呢？(nǐ ne?) 你叫什么名字？(nǐ jiào shénme míngzi?) 我叫李爱。(wǒ jiào Lǐ Ài.) "
+        "Default style: reply in Chinese with pinyin in parentheses for every Chinese text, then concise English. "
         "Keep responses short and encouraging."
     ),
 }
@@ -1086,7 +1090,7 @@ def roleplay_turn():
             "Persona: You are the student's Mandarin language partner (语言朋友), NEVER say you are an AI. "
             "Name 李爱 (Emily), from Beijing, Chinese teacher, phone 1358679042. Friend 高山 (Gordon), American doctor; he is tall and handsome; you are short. "
             "FAMILY: Your family has 5 people: dad, mom, one older brother (哥哥), one younger sister (妹妹), and you. You don't have younger brothers (弟弟) or older sisters (姐姐). Your dad and older brother are doctors, your mom is a teacher, your younger sister is a student at NYU. Your parents are 65, your older brother is 31, you are 27, your younger sister is 20. You have a pet dog named Butter.\n"
-            "During the role play, answer in Chinese with pinyin in parentheses, no English unless asked for help/slow-down/they don't understand. "
+            "During the role play, answer in Chinese with pinyin in parentheses after EVERY Chinese word or phrase. CRITICAL: Include complete pinyin with tone marks (ā, á, ǎ, à, etc.) for ALL Chinese text. Format: 你好 (nǐ hǎo) 我叫李爱 (wǒ jiào Lǐ Ài). PUNCTUATION: Use Chinese question marks (？) for ALL questions, Chinese periods (。) for statements. Examples: 你呢？(nǐ ne?) 你叫什么名字？(nǐ jiào shénme míngzi?) No English unless asked for help/slow-down/they don't understand. "
             "Turn order: The student should ask questions first. Only respond after they ask. Do not guide them or ask any questions. "
             "Disclosure constraint: Only reveal information that the student explicitly asks for. Do NOT volunteer extra details. Keep answers BRIEF and on-topic. "
             "Minimal answers examples: If asked ‘你家有几口人？’, reply only ‘我家有五口人。(Wǒ jiā yǒu wǔ kǒu rén.)’. Do NOT list family members unless asked ‘都有谁？/他们是谁？’. If asked ‘你哥哥多大？’ but the student earlier said they have no 哥哥, explain briefly and suggest another allowed question. "
@@ -1343,6 +1347,9 @@ def roleplay_turn():
             print(f"DEBUG: Non-question sentences kept: {non_question_sentences}")
             print(f"DEBUG: Modified response without questions: {reply[:50]}...")
         
+        # Post-process Emily's response to ensure proper Chinese punctuation
+        reply = fix_emily_punctuation(reply)
+        
         return jsonify({ 'reply': reply })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1557,6 +1564,264 @@ def chat():
         print(f"Error in chat endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+def process_mixed_language_transcript(text, unit_id):
+    """Post-process transcript to handle mixed Chinese-English content."""
+    import re
+    
+    # Common English names that might be misrecognized as Chinese
+    name_corrections = {
+        '出门': 'Truman',
+        '杰克': 'Jack', 
+        '玛丽': 'Mary',
+        '大卫': 'David',
+        '莎拉': 'Sarah',
+        '迈克': 'Mike',
+        '艾米': 'Amy',
+        '汤姆': 'Tom',
+        '安娜': 'Anna',
+        '约翰': 'John',
+        '丽莎': 'Lisa',
+        '彼得': 'Peter',
+        '凯特': 'Kate',
+        '史蒂夫': 'Steve',
+        '珍妮': 'Jenny',
+        '罗伯特': 'Robert',
+        '艾玛': 'Emma',
+        '詹姆斯': 'James',
+        '艾米丽': 'Emily',
+        '马修': 'Matthew',
+        '瑞秋': 'Rachel',
+        '布兰登': 'Brandon',
+        '劳拉': 'Laura',
+        '贾斯汀': 'Justin',
+        '丹尼尔': 'Daniel',
+        '阿什利': 'Ashley',
+        '克里斯托弗': 'Christopher',
+        '米歇尔': 'Michelle'
+    }
+    
+    processed_text = text
+    
+    # First, correct common Chinese misrecognitions of English names
+    for chinese_word, english_name in name_corrections.items():
+        # Look for patterns like "我叫出门" and replace with "我叫Truman"
+        pattern = f'我叫\s*{chinese_word}'
+        replacement = f'我叫{english_name}'
+        processed_text = re.sub(pattern, replacement, processed_text)
+        
+        # Also handle standalone misrecognitions in name context
+        if '我叫' in processed_text and chinese_word in processed_text:
+            processed_text = processed_text.replace(chinese_word, english_name)
+    
+    # Common patterns where English names appear in Chinese introductions
+    patterns = {
+        'unit1': [
+            # "我叫 [English Name]" patterns
+            (r'我叫\s*([A-Za-z]+(?:\s+[A-Za-z]+)*)', r'我叫\1'),
+            # "My name is [Name]" in mixed speech
+            (r'(?:my name is|I am|I\'m)\s+([A-Za-z]+(?:\s+[A-Za-z]+)*)', r'我叫\1'),
+            # Fix common misrecognitions
+            (r'我教', '我叫'),  # Common mishearing
+            (r'我交', '我叫'),  # Common mishearing
+            (r'我较', '我叫'),  # Another common mishearing
+        ]
+    }
+    
+    unit_patterns = patterns.get(unit_id, [])
+    
+    for pattern, replacement in unit_patterns:
+        processed_text = re.sub(pattern, replacement, processed_text, flags=re.IGNORECASE)
+    
+    # Apply proper punctuation rules for Chinese and English
+    processed_text = apply_proper_punctuation(processed_text)
+    
+    return processed_text.strip()
+
+def convert_to_chinese_transcript(text, unit_id):
+    """Convert student speech to Chinese characters while preserving English names."""
+    import re
+    
+    if not text or not client:
+        return text
+    
+    # Extract and preserve English names
+    english_names = []
+    name_pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b'
+    
+    # Find all English names and replace with placeholders
+    def replace_name(match):
+        name = match.group(0)
+        placeholder = f"__NAME_{len(english_names)}__"
+        english_names.append(name)
+        return placeholder
+    
+    text_with_placeholders = re.sub(name_pattern, replace_name, text)
+    
+    try:
+        # Use OpenAI to convert to Chinese characters
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": (
+                        "You are a Chinese language transcription assistant. Convert the input text to proper simplified Chinese characters. "
+                        "Rules: 1) Convert English words to simplified Chinese characters when appropriate for a Chinese language learning context. "
+                        "2) Keep placeholder tokens (like __NAME_0__) exactly as they are - do not translate them. "
+                        "3) Use proper Chinese grammar and sentence structure with ONLY simplified characters. "
+                        "4) For introductions, use patterns like '我叫' for 'my name is' or 'I am called'. "
+                        "5) CRITICAL: Use only simplified Chinese characters, never traditional characters. "
+                        "6) Return only the simplified Chinese text, no explanations."
+                    )
+                },
+                {
+                    "role": "user", 
+                    "content": f"Convert this to Chinese characters: {text_with_placeholders}"
+                }
+            ],
+            max_tokens=150,
+            temperature=0.1
+        )
+        
+        chinese_text = response.choices[0].message.content.strip()
+        
+        # Restore English names
+        for i, name in enumerate(english_names):
+            placeholder = f"__NAME_{i}__"
+            chinese_text = chinese_text.replace(placeholder, name)
+        
+        # Ensure simplified characters only (convert any traditional characters)
+        chinese_text = convert_to_simplified(chinese_text)
+        
+        return chinese_text
+        
+    except Exception as e:
+        print(f"Error converting to Chinese: {str(e)}")
+        # Fallback: return original text with English names preserved
+        return text
+
+def convert_to_simplified(text):
+    """Convert any traditional Chinese characters to simplified Chinese characters."""
+    # Common traditional to simplified character mappings
+    traditional_to_simplified = {
+        # Common characters that might appear in student speech
+        '學': '学', '習': '习', '語': '语', '說': '说', '話': '话', '問': '问', 
+        '題': '题', '時': '时', '間': '间', '個': '个', '們': '们', '來': '来',
+        '這': '这', '那': '那', '裡': '里', '裏': '里', '頭': '头', '會': '会',
+        '對': '对', '國': '国', '家': '家', '學': '学', '校': '校', '課': '课',
+        '書': '书', '讀': '读', '寫': '写', '聽': '听', '見': '见', '開': '开',
+        '關': '关', '門': '门', '窗': '窗', '車': '车', '電': '电', '話': '话',
+        '機': '机', '電': '电', '視': '视', '網': '网', '絡': '络', '計': '计',
+        '算': '算', '師': '师', '醫': '医', '護': '护', '員': '员', '長': '长',
+        '經': '经', '濟': '济', '業': '业', '務': '务', '錢': '钱', '買': '买',
+        '賣': '卖', '東': '东', '西': '西', '南': '南', '北': '北', '點': '点',
+        '鐘': '钟', '號': '号', '歲': '岁', '歲': '岁', '親': '亲', '愛': '爱',
+        '結': '结', '婚': '婚', '離': '离', '開': '开', '關': '关', '係': '系',
+        '關': '关', '係': '系', '親': '亲', '戚': '戚', '朋': '朋', '友': '友'
+    }
+    
+    # Convert traditional characters to simplified
+    for traditional, simplified in traditional_to_simplified.items():
+        text = text.replace(traditional, simplified)
+    
+    return text
+
+def apply_proper_punctuation(text):
+    """Apply proper punctuation rules for Chinese and English text."""
+    import re
+    
+    # Remove any existing punctuation at the end
+    text = re.sub(r'[。！？，、；：""''（）【】《》\.\!\?\,\;\:\"\']+$', '', text.strip())
+    
+    # Determine if the text is primarily Chinese or English
+    chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
+    english_chars = len(re.findall(r'[a-zA-Z]', text))
+    total_chars = len(text.replace(' ', ''))
+    
+    if total_chars == 0:
+        return text
+    
+    # Mixed language text (Chinese with English names)
+    if chinese_chars > 0 and english_chars > 0:
+        # Check for questions FIRST (higher priority than introductions)
+        if any(word in text for word in ['什么', '哪里', '几', '多少', '怎么', '为什么', '吗', '呢']):
+            return text + '？'
+        # For introductions like "我叫Truman", use Chinese punctuation
+        elif '我叫' in text or '你叫' in text or '他叫' in text or '她叫' in text:
+            return text + '。'
+        # Default to Chinese period for mixed content
+        else:
+            return text + '。'
+    
+    # Primarily Chinese text
+    elif chinese_chars > english_chars:
+        # Questions get Chinese question mark
+        if any(word in text for word in ['什么', '哪里', '几', '多少', '怎么', '为什么', '吗', '呢']):
+            return text + '？'
+        # Exclamations
+        elif any(word in text for word in ['你好', '谢谢', '再见', '太好了', '很好']):
+            return text + '！'
+        # Default to Chinese period
+        else:
+            return text + '。'
+    
+    # Primarily English text
+    elif english_chars > chinese_chars:
+        # Questions get English question mark
+        if any(word in text.lower() for word in ['what', 'where', 'when', 'how', 'why', 'who', 'which']):
+            return text + '?'
+        # Exclamations
+        elif any(word in text.lower() for word in ['hello', 'hi', 'thanks', 'thank you', 'goodbye', 'bye', 'great', 'good']):
+            return text + '!'
+        # Default to English period
+        else:
+            return text + '.'
+    
+    # Default case
+    else:
+        return text + '。'
+
+def fix_emily_punctuation(text):
+    """Ensure Emily's Chinese questions use proper question marks (？) instead of periods."""
+    import re
+    
+    if not text:
+        return text
+    
+    # Split text into sentences, preserving pinyin and English parts
+    sentences = re.split(r'([。！？\.\!\?])', text)
+    fixed_sentences = []
+    
+    for i in range(0, len(sentences), 2):  # Process sentence pairs (content + punctuation)
+        if i >= len(sentences):
+            break
+            
+        sentence = sentences[i].strip()
+        punctuation = sentences[i + 1] if i + 1 < len(sentences) else ''
+        
+        if not sentence:
+            continue
+            
+        # Check if this is a Chinese question that should have a question mark
+        # Look for question words in Chinese text (ignoring pinyin in parentheses)
+        chinese_part = re.sub(r'\([^)]*\)', '', sentence)  # Remove pinyin
+        
+        is_question = any(word in chinese_part for word in [
+            '什么', '哪里', '哪儿', '几', '多少', '怎么', '为什么', '吗', '呢', 
+            '你呢', '你叫什么', '你家有几', '你多大', '你几岁', '你是哪', '你从哪'
+        ])
+        
+        if is_question:
+            # Replace period with question mark for Chinese questions
+            if punctuation == '。' or punctuation == '.':
+                punctuation = '？'
+            elif not punctuation:
+                punctuation = '？'
+        
+        fixed_sentences.append(sentence + punctuation)
+    
+    return ''.join(fixed_sentences)
+
 @app.route('/activity/roleplay/whisper', methods=['POST'])
 def whisper_transcribe():
     """Use OpenAI Whisper API for speech recognition."""
@@ -1575,27 +1840,35 @@ def whisper_transcribe():
         # Get unit context for better recognition
         unit_id = request.form.get('unitId', '')
         
-        # Create a prompt to help Whisper understand the context
+        # Create a prompt to help Whisper understand the context (including English names)
         prompt_by_unit = {
-            'unit1': "你好，我叫，什么名字，老师，朋友，电话号码",
-            'unit2': "家，几口人，爸爸，妈妈，哥哥，姐姐，弟弟，妹妹，多少岁",
-            'unit3': "今天，几点，起床，什么课，周末，做什么"
+            'unit1': "你好，我叫，什么名字，老师，朋友，电话号码。Common English names: Truman, John, Mary, David, Sarah, Michael, Jessica, Emily, James, Lisa, Robert, Jennifer, William, Amanda, Christopher, Michelle, Daniel, Ashley, Matthew, Stephanie, Andrew, Melissa, Joshua, Nicole, Ryan, Elizabeth, Justin, Rebecca, Brandon, Laura, Jacob, Amy, Tyler, Kimberly, Zachary, Samantha, Kevin, Rachel, Nathan, Heather, Jonathan, Brittany, Jack, Mike, Tom, Anna, Peter, Kate, Steve, Jenny, Emma, Rachel",
+            'unit2': "家，几口人，爸爸，妈妈，哥哥，姐姐，弟弟，妹妹，多少岁，年纪，家庭，父母，兄弟姐妹。English names: Truman, Jack, Mary, David, Sarah, Mike, Amy, Tom, Anna, John, Lisa, Peter, Kate, Steve, Jenny, Robert, Emma, James, Emily, Matthew, Rachel, Brandon, Laura, Justin, Daniel, Ashley, Christopher, Michelle",
+            'unit3': "今天，几点，起床，什么课，周末，做什么，时间，上课，下课，早上，中午，晚上，学习。English names: Truman, Jack, Mary, David, Sarah, Mike, Amy, Tom, Anna, John, Lisa, Peter, Kate, Steve, Jenny, Robert, Emma, James, Emily, Matthew, Rachel, Brandon, Laura, Justin, Daniel, Ashley, Christopher, Michelle"
         }
         
         prompt = prompt_by_unit.get(unit_id, "你好，谢谢，再见")
         
-        # Use Whisper API for transcription
+        # Use Whisper API for transcription with multilingual support
         # Convert FileStorage to a file-like object that OpenAI can handle
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=(audio_file.filename, audio_file.read(), audio_file.content_type),
-            language="zh",  # Chinese
+            # Removed language restriction to allow English names in Chinese speech
             prompt=prompt,  # Context to help with recognition
-            response_format="json"
+            response_format="json",
+            temperature=0.2  # More consistent results
         )
         
+        # Post-process for mixed language content and convert to Chinese
+        processed_text = process_mixed_language_transcript(transcript.text, unit_id)
+        
+        # Convert student speech to Chinese characters (except English names)
+        chinese_text = convert_to_chinese_transcript(processed_text, unit_id)
+        
         return jsonify({
-            'text': transcript.text,
+            'text': chinese_text,
+            'original': transcript.text,  # Keep original for debugging
             'success': True
         })
         
@@ -1618,15 +1891,15 @@ def speech_assist():
         common_phrases = {
             'unit1': [
                 '你好', '我叫', '什么名字', '老师', '朋友', '电话号码', 
-                '你叫什么名字', '我是老师', '我的朋友叫', '你的电话号码是什么'
+                '你叫什么名字？', '我是老师。', '我的朋友叫', '你的电话号码是什么？'
             ],
             'unit2': [
                 '家', '几口人', '爸爸', '妈妈', '哥哥', '姐姐', '弟弟', '妹妹',
-                '你家有几口人', '多少岁', '你爸爸妈妈多少岁了', '你多大'
+                '你家有几口人？', '多少岁', '你爸爸妈妈多少岁了？', '你多大？'
             ],
             'unit3': [
                 '今天', '几点', '起床', '什么课', '周末', '做什么',
-                '你今天几点起床', '你今天有什么课', '你周末做什么'
+                '你今天几点起床？', '你今天有什么课？', '你周末做什么？'
             ]
         }
         
@@ -1634,23 +1907,104 @@ def speech_assist():
         unit_phrases = common_phrases.get(unit_id, [])
         all_phrases = common_phrases.get('unit1', []) + common_phrases.get('unit2', []) + common_phrases.get('unit3', [])
         
-        # Simple fuzzy matching - check if recognized text is close to common phrases
+        # Enhanced fuzzy matching with English name support
+        from difflib import SequenceMatcher
+        import re
+        
+        def calculate_similarity(text1, text2):
+            """Calculate similarity between two texts."""
+            # Remove spaces and normalize
+            text1 = re.sub(r'\s+', '', text1.lower())
+            text2 = re.sub(r'\s+', '', text2.lower())
+            
+            # Character-level similarity
+            char_similarity = SequenceMatcher(None, text1, text2).ratio()
+            
+            # Check for partial matches (important for Chinese)
+            partial_match = 0
+            if text1 in text2 or text2 in text1:
+                partial_match = 0.3
+            
+            # Check for common characters
+            common_chars = set(text1) & set(text2)
+            char_overlap = len(common_chars) / max(len(set(text1)), len(set(text2)), 1)
+            
+            return max(char_similarity, partial_match, char_overlap * 0.8)
+        
+        def match_english_names(text):
+            """Find potential English name matches in recognized text."""
+            common_english_names = [
+                'Truman', 'John', 'Mary', 'David', 'Sarah', 'Michael', 'Jessica', 'Emily', 'James',
+                'Lisa', 'Robert', 'Jennifer', 'William', 'Amanda', 'Christopher', 'Michelle',
+                'Daniel', 'Ashley', 'Matthew', 'Stephanie', 'Andrew', 'Melissa', 'Joshua',
+                'Nicole', 'Ryan', 'Elizabeth', 'Justin', 'Rebecca', 'Brandon', 'Laura',
+                'Jacob', 'Amy', 'Tyler', 'Kimberly', 'Zachary', 'Samantha', 'Kevin', 'Rachel',
+                'Jack', 'Mike', 'Tom', 'Anna', 'Peter', 'Kate', 'Steve', 'Jenny', 'Emma'
+            ]
+            
+            # Also check for Chinese misrecognitions of English names
+            chinese_to_english = {
+                '出门': 'Truman', '杰克': 'Jack', '玛丽': 'Mary', '大卫': 'David',
+                '莎拉': 'Sarah', '迈克': 'Mike', '艾米': 'Amy', '汤姆': 'Tom',
+                '安娜': 'Anna', '约翰': 'John', '丽莎': 'Lisa', '彼得': 'Peter',
+                '凯特': 'Kate', '史蒂夫': 'Steve', '珍妮': 'Jenny', '罗伯特': 'Robert',
+                '艾玛': 'Emma', '詹姆斯': 'James', '艾米丽': 'Emily', '马修': 'Matthew'
+            }
+            
+            matches = []
+            text_lower = text.lower()
+            
+            # First check for Chinese misrecognitions
+            for chinese_word, english_name in chinese_to_english.items():
+                if chinese_word in text:
+                    matches.append(english_name)
+            
+            # Then check for direct English name matches
+            for name in common_english_names:
+                name_lower = name.lower()
+                # Check for partial matches
+                if name_lower in text_lower or text_lower in name_lower:
+                    matches.append(name)
+                # Check for similar sounding (basic phonetic matching)
+                elif calculate_similarity(text_lower, name_lower) > 0.6:
+                    matches.append(name)
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_matches = []
+            for match in matches:
+                if match not in seen:
+                    seen.add(match)
+                    unique_matches.append(match)
+            
+            return unique_matches[:3]  # Return top 3 matches
+        
         suggestions = []
-        recognized_lower = recognized_text.lower()
+        recognized_clean = re.sub(r'\s+', '', recognized_text.lower())
         
-        # Check unit-specific phrases first
-        for phrase in unit_phrases:
-            if phrase in recognized_text or any(char in recognized_text for char in phrase):
-                suggestions.append(phrase)
+        # Check for English names first (for unit1)
+        if unit_id == 'unit1':
+            name_matches = match_english_names(recognized_text)
+            for name in name_matches:
+                suggestion = f'我叫{name}'
+                suggestions.append(apply_proper_punctuation(suggestion))
         
-        # If no unit-specific matches, check all phrases
-        if not suggestions:
-            for phrase in all_phrases:
-                if phrase in recognized_text or any(char in recognized_text for char in phrase):
-                    suggestions.append(phrase)
+        # Score all phrases and sort by similarity
+        phrase_scores = []
+        for phrase in unit_phrases + all_phrases:
+            similarity = calculate_similarity(recognized_clean, phrase)
+            if similarity > 0.3:  # Lower threshold for more forgiving matching
+                phrase_scores.append((phrase, similarity))
         
-        # Limit suggestions to top 3
-        suggestions = suggestions[:3]
+        # Sort by similarity and take top matches
+        phrase_scores.sort(key=lambda x: x[1], reverse=True)
+        phrase_suggestions = [apply_proper_punctuation(phrase) for phrase, score in phrase_scores[:5]]
+        
+        # Combine name suggestions with phrase suggestions
+        suggestions.extend(phrase_suggestions)
+        
+        # Remove duplicates and limit to top 5
+        suggestions = list(dict.fromkeys(suggestions))[:5]
         
         return jsonify({
             'original': recognized_text,
@@ -1660,6 +2014,48 @@ def speech_assist():
         
     except Exception as e:
         print(f"Error in speech-assist endpoint: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/activity/roleplay/generate-pinyin', methods=['POST'])
+def generate_pinyin():
+    """Generate pinyin for Chinese text using OpenAI API."""
+    try:
+        if client is None:
+            return jsonify({'error': 'OpenAI API key is not configured.'}), 500
+            
+        data = request.json or {}
+        chinese_text = (data.get('text') or '').strip()
+        
+        if not chinese_text:
+            return jsonify({'error': 'No Chinese text provided'}), 400
+        
+        # Use OpenAI to generate pinyin for the Chinese text
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "You are a pinyin generator. Convert Chinese characters to pinyin with tone marks. Return only the pinyin, nothing else. Use proper tone marks (ā, á, ǎ, à, etc.). Separate words with spaces."
+                },
+                {
+                    "role": "user", 
+                    "content": f"Convert this Chinese text to pinyin: {chinese_text}"
+                }
+            ],
+            max_tokens=200,
+            temperature=0.1
+        )
+        
+        pinyin = response.choices[0].message.content.strip()
+        
+        return jsonify({
+            'pinyin': pinyin,
+            'original': chinese_text,
+            'success': True
+        })
+        
+    except Exception as e:
+        print(f"Error in generate-pinyin endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/tts', methods=['POST'])
@@ -1716,5 +2112,5 @@ def tts():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # Bind to a dedicated port to avoid conflicts and make frontend relative calls work
-    app.run(host='127.0.0.1', port=Config.PORT, debug=(Config.ENV != 'production'))
+    # Use port 8080 to avoid macOS ControlCenter blocking port 5000
+    app.run(host='0.0.0.0', port=8080, debug=(Config.ENV != 'production'))
